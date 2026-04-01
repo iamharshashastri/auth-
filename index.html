@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AuthFlow – Multi-Tenant Authentication</title>
+<title>UltiAuth – Multi-Tenant Authentication</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
@@ -254,7 +254,7 @@
 
 <!-- NAV -->
 <nav id="main-nav">
-  <span class="nav-logo">⚡ AuthFlow</span>
+  <span class="nav-logo">⚡ UltiAuth</span>
   <span class="nav-spacer"></span>
   <button class="btn btn-ghost btn-sm" id="nav-docs" onclick="window.location='/api/'">Docs</button>
   <button class="btn btn-ghost btn-sm" id="nav-signin" onclick="openModal('signin')">Sign In</button>
@@ -267,7 +267,7 @@
   <section class="hero">
     <div class="hero-badge">✦ Now in Public Beta</div>
     <h1>Authentication<br/>for Every App</h1>
-    <p>AuthFlow gives your multi-tenant apps drop-in auth with OAuth, magic links, and JWTs — no backend required.</p>
+    <p>UltiAuth gives your multi-tenant apps drop-in auth with OAuth, magic links, and JWTs — no backend required.</p>
     <div class="hero-actions">
       <button class="btn btn-primary" style="padding:12px 28px;font-size:1rem" onclick="openModal('signup')">Start for free →</button>
       <button class="btn btn-ghost" style="padding:12px 28px;font-size:1rem" onclick="window.location='/api/'">View Docs</button>
@@ -276,7 +276,7 @@
 
   <section class="features">
     <h2>Everything you need</h2>
-    <p class="features-sub">AuthFlow handles the hard parts so you can ship faster.</p>
+    <p class="features-sub">UltiAuth handles the hard parts so you can ship faster.</p>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon">🔐</div>
@@ -317,7 +317,7 @@
   <div class="modal fade-in">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <h2 id="modal-title">Welcome back</h2>
-    <p class="modal-sub" id="modal-sub">Sign in to your AuthFlow account</p>
+    <p class="modal-sub" id="modal-sub">Sign in to your UltiAuth account</p>
     <div class="modal-tabs">
       <div class="modal-tab active" id="tab-signin" onclick="switchTab('signin')">Sign In</div>
       <div class="modal-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
@@ -345,7 +345,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-logo">⚡ AuthFlow</div>
+        <div class="sidebar-logo">⚡ UltiAuth</div>
       </div>
       <div class="sidebar-user">
         <div class="sidebar-user-email" id="sb-user-email">—</div>
@@ -676,7 +676,7 @@ function switchTab(tab) {
   signinTab.classList.toggle('active', tab === 'signin');
   signupTab.classList.toggle('active', tab === 'signup');
   title.textContent = tab === 'signin' ? 'Welcome back' : 'Create account';
-  sub.textContent = tab === 'signin' ? 'Sign in to your AuthFlow account' : 'Start managing auth for your apps';
+  sub.textContent = tab === 'signin' ? 'Sign in to your UltiAuth account' : 'Start managing auth for your apps';
   // btnText is temporarily absent while the submit spinner is showing; guard it independently
   if (btnText) btnText.textContent = tab === 'signin' ? 'Sign In' : 'Create Account';
   error.style.display = 'none';
