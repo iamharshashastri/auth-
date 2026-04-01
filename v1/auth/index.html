@@ -378,7 +378,12 @@ async function handleOAuthCallback(provider, code) {
       body: JSON.stringify({
         provider,
         code,
-        redirect_uri: window.location.href.split('?')[0] + window.location.search.replace(/&?code=[^&]*/g,'').replace(/&?provider=[^&]*/g,''),
+        redirect_uri: (() => {
+          const u = new URL(window.location.href);
+          u.searchParams.delete('code');
+          u.searchParams.delete('provider');
+          return u.toString();
+        })(),
         app_key: publishableKey || (storedState ? parseState(storedState).publishableKey : null),
         state: storedState
       })
@@ -397,12 +402,15 @@ function finishAuth(token, overrideRedirect) {
   const target = overrideRedirect || redirectUri;
   if (!target) { showError('No redirect URI configured.'); return; }
 
-  // Only allow http/https schemes to prevent javascript: or data: redirects
+  // Allow https always; allow http only for localhost/127.0.0.1 (development)
   let targetUrl;
   try {
     targetUrl = new URL(target);
-    if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') {
-      showError('Redirect URI scheme not allowed.'); return;
+    const isHttps = targetUrl.protocol === 'https:';
+    const isLocalHttp = targetUrl.protocol === 'http:' &&
+      (targetUrl.hostname === 'localhost' || targetUrl.hostname === '127.0.0.1');
+    if (!isHttps && !isLocalHttp) {
+      showError('Redirect URI must use https (or http://localhost for development).'); return;
     }
   } catch {
     showError('Invalid redirect URI.'); return;
@@ -422,10 +430,10 @@ function finishAuth(token, overrideRedirect) {
 
   if (!isAllowed) { showError('Redirect URI not in the allowed list.'); return; }
 
-  const sep = target.includes('?') ? '&' : '?';
-  const safeToken = encodeURIComponent(token);
-  const safeState = state ? `&state=${encodeURIComponent(state)}` : '';
-  window.location.assign(`${target}${sep}token=${safeToken}${safeState}`);
+  // Reconstruct the URL from the parsed object to avoid tainted-string redirection
+  targetUrl.searchParams.set('token', token);
+  if (state) targetUrl.searchParams.set('state', state);
+  window.location.assign(targetUrl.toString());
 }
 
 function showScreen(name) {

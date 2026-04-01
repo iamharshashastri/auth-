@@ -7,6 +7,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const JWT_SECRET = Deno.env.get("JWT_SECRET")!;
 
+// Synthetic email domain for OAuth users without a real email (internal use only)
+const OAUTH_SYNTHETIC_EMAIL_DOMAIN = "oauth.authflow.internal";;
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -296,12 +299,20 @@ async function handleOAuthCallback(req: Request, supabase: ReturnType<typeof cre
       oauthId = String(profile.id);
       // Fetch email separately if not present
       if (!oauthEmail) {
-        const emailRes = await fetch("https://api.github.com/user/emails", {
-          headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-        const emails = await emailRes.json();
-        const primary = emails.find((e: { primary: boolean; email: string }) => e.primary);
-        oauthEmail = primary?.email || null;
+        try {
+          const emailRes = await fetch("https://api.github.com/user/emails", {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+          });
+          if (emailRes.ok) {
+            const emails = await emailRes.json();
+            if (Array.isArray(emails)) {
+              const primary = emails.find((e: { primary: boolean; email: string }) => e.primary);
+              oauthEmail = primary?.email || null;
+            }
+          }
+        } catch {
+          // email remains null; user will get a synthetic email
+        }
       }
       break;
     case "microsoft":
@@ -344,7 +355,7 @@ async function handleOAuthCallback(req: Request, supabase: ReturnType<typeof cre
   }
 
   // Upsert user
-  const lookupEmail = oauthEmail || `${provider}_${oauthId}@oauth.authflow.internal`;
+  const lookupEmail = oauthEmail || `${provider}_${oauthId}@${OAUTH_SYNTHETIC_EMAIL_DOMAIN}`;
 
   const { data: existingUser } = await supabase
     .from("app_users")
