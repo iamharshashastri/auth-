@@ -396,14 +396,36 @@ async function handleOAuthCallback(provider, code) {
 function finishAuth(token, overrideRedirect) {
   const target = overrideRedirect || redirectUri;
   if (!target) { showError('No redirect URI configured.'); return; }
+
+  // Only allow http/https schemes to prevent javascript: or data: redirects
+  let targetUrl;
+  try {
+    targetUrl = new URL(target);
+    if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') {
+      showError('Redirect URI scheme not allowed.'); return;
+    }
+  } catch {
+    showError('Invalid redirect URI.'); return;
+  }
+
   const allowed = appConfig?.redirect_urls || [];
-  const targetBase = target.split('?')[0];
+  if (allowed.length === 0) { showError('No redirect URLs configured for this app.'); return; }
+
+  const targetBase = targetUrl.origin + targetUrl.pathname;
   const isAllowed = allowed.some(u => {
-    try { return new URL(u).origin === new URL(targetBase).origin; } catch { return u === targetBase; }
+    try {
+      const allowedUrl = new URL(u);
+      return allowedUrl.origin === targetUrl.origin &&
+             (allowedUrl.pathname === targetUrl.pathname || allowedUrl.pathname === '/');
+    } catch { return false; }
   });
-  if (!isAllowed && allowed.length > 0) { showError('Redirect URI not allowed.'); return; }
+
+  if (!isAllowed) { showError('Redirect URI not in the allowed list.'); return; }
+
   const sep = target.includes('?') ? '&' : '?';
-  window.location.href = `${target}${sep}token=${encodeURIComponent(token)}${state ? `&state=${encodeURIComponent(state)}` : ''}`;
+  const safeToken = encodeURIComponent(token);
+  const safeState = state ? `&state=${encodeURIComponent(state)}` : '';
+  window.location.assign(`${target}${sep}token=${safeToken}${safeState}`);
 }
 
 function showScreen(name) {
