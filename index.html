@@ -594,17 +594,30 @@
 const SUPABASE_URL = 'https://lqkpxervwakucksrnoss.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Sdi0YJz0IPwK9yV-0tLvCw_9IDZQhD8';
 const FN_BASE = `${SUPABASE_URL}/functions/v1`;
-
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const MSG_SERVICE_UNAVAILABLE = 'Authentication service is unavailable. Please refresh and try again.';
 
 let currentUser = null;
 let currentApps = [];
 let currentAppId = null;
 let currentTab = 'apps';
 let providerState = {};
+let currentAuthTab = 'signin';
+
+let supabase = null;
+try {
+  if (window.supabase) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (e) {
+  console.error('Failed to initialize Supabase:', e);
+}
 
 // ── INIT ──────────────────────────────────────────────
 async function init() {
+  if (!supabase) {
+    console.warn('Supabase is unavailable — authentication features are disabled.');
+    return;
+  }
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
     await onLogin(session.user);
@@ -637,8 +650,6 @@ function onLogout() {
 }
 
 // ── AUTH ──────────────────────────────────────────────
-let currentAuthTab = 'signin';
-
 function openModal(tab = 'signin') {
   switchTab(tab);
   document.getElementById('auth-modal').classList.add('open');
@@ -667,11 +678,16 @@ async function handleAuth(e) {
   document.getElementById('modal-error').style.display = 'none';
 
   let error;
-  if (currentAuthTab === 'signin') {
-    ({ error } = await supabase.auth.signInWithPassword({ email, password }));
-  } else {
-    ({ error } = await supabase.auth.signUp({ email, password }));
-    if (!error) { showToast('Check your email to confirm your account!', 'info'); }
+  try {
+    if (!supabase) throw new Error(MSG_SERVICE_UNAVAILABLE);
+    if (currentAuthTab === 'signin') {
+      ({ error } = await supabase.auth.signInWithPassword({ email, password }));
+    } else {
+      ({ error } = await supabase.auth.signUp({ email, password }));
+      if (!error) { showToast('Check your email to confirm your account!', 'info'); }
+    }
+  } catch (err) {
+    error = err;
   }
 
   if (error) {
