@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AuthFlow API Reference</title>
+<title>UltiAuth API Reference</title>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -135,7 +135,7 @@
 <!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="sidebar-logo">
-    <a href="/">⚡ AuthFlow</a>
+    <a href="/">⚡ UltiAuth</a>
     <p>API Reference v1</p>
   </div>
   <div class="sidebar-section">Getting Started</div>
@@ -169,12 +169,12 @@
     <!-- OVERVIEW -->
     <div class="doc-section" id="overview">
       <h2>Overview</h2>
-      <p>AuthFlow provides drop-in authentication for multi-tenant applications. Each app you create gets isolated user pools, configurable OAuth providers, and JWT-based sessions.</p>
+      <p>UltiAuth provides drop-in authentication for multi-tenant applications. Each app you create gets isolated user pools, configurable OAuth providers, and JWT-based sessions.</p>
       <p>All API endpoints are available at:</p>
       <div class="standalone-code"><pre><code>https://lqkpxervwakucksrnoss.supabase.co/functions/v1/</code></pre></div>
       <h3>How it works</h3>
       <ul>
-        <li>Create an app in the <a href="/" style="color:var(--accent-light)">AuthFlow dashboard</a> and get a <strong>publishable key</strong></li>
+        <li>Create an app in the <a href="/" style="color:var(--accent-light)">UltiAuth dashboard</a> and get a <strong>publishable key</strong></li>
         <li>Embed the auth UI at <code>/v1/auth/?key=YOUR_KEY&amp;redirect_uri=YOUR_CALLBACK</code></li>
         <li>After sign-in, users are redirected back with a <strong>JWT token</strong></li>
         <li>Your app verifies the JWT and uses the User API on behalf of the user</li>
@@ -184,7 +184,7 @@
         <div class="code-tab active" onclick="switchCodeTab(this,'qs')">JavaScript</div>
         <div class="code-tab" onclick="switchCodeTab(this,'qs')">HTML</div>
       </div>
-      <div class="code-block"><pre><code><span class="cm">// 1. Redirect to AuthFlow login page</span>
+      <div class="code-block"><pre><code><span class="cm">// 1. Redirect to UltiAuth login page</span>
 <span class="kw">const</span> loginUrl = <span class="st">`https://lqkpxervwakucksrnoss.supabase.co/v1/auth/`</span>
   + <span class="st">`?key=pk_YOUR_PUBLISHABLE_KEY`</span>
   + <span class="st">`&amp;redirect_uri=${encodeURIComponent(window.location.origin + '/callback')}`</span>
@@ -206,10 +206,10 @@ window.location.href = loginUrl;
     <!-- AUTHENTICATION -->
     <div class="doc-section" id="authentication">
       <h2>Authentication</h2>
-      <p>The User API uses <strong>Bearer token</strong> authentication. Include the JWT token issued by AuthFlow in the <code>Authorization</code> header:</p>
+      <p>The User API uses <strong>Bearer token</strong> authentication. Include the JWT token issued by UltiAuth in the <code>Authorization</code> header:</p>
       <div class="standalone-code"><pre><code>Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</code></pre></div>
       <h3>JWT Payload</h3>
-      <p>AuthFlow JWTs contain the following claims:</p>
+      <p>UltiAuth JWTs contain the following claims:</p>
       <table class="params-table">
         <thead><tr><th>Claim</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
