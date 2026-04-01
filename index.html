@@ -402,7 +402,7 @@
             <button class="btn btn-primary btn-sm" onclick="toggleCreateApp()">+ New App</button>
           </div>
 
-          <div id="create-app-form" style="display:none" class="card" style="margin-bottom:20px">
+          <div id="create-app-form" style="display:none;margin-bottom:20px" class="card">
             <div class="card-header"><h3>Create New App</h3></div>
             <div class="card-body">
               <div class="grid-2">
@@ -652,20 +652,34 @@ function onLogout() {
 // ── AUTH ──────────────────────────────────────────────
 function openModal(tab = 'signin') {
   switchTab(tab);
-  document.getElementById('auth-modal').classList.add('open');
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.classList.add('open');
 }
 function closeModal() {
-  document.getElementById('auth-modal').classList.remove('open');
-  document.getElementById('modal-error').style.display = 'none';
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.classList.remove('open');
+  const err = document.getElementById('modal-error');
+  if (err) err.style.display = 'none';
 }
 function switchTab(tab) {
   currentAuthTab = tab;
-  document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
-  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
-  document.getElementById('modal-title').textContent = tab === 'signin' ? 'Welcome back' : 'Create account';
-  document.getElementById('modal-sub').textContent = tab === 'signin' ? 'Sign in to your AuthFlow account' : 'Start managing auth for your apps';
-  document.getElementById('auth-btn-text').textContent = tab === 'signin' ? 'Sign In' : 'Create Account';
-  document.getElementById('modal-error').style.display = 'none';
+  const signinTab = document.getElementById('tab-signin');
+  const signupTab = document.getElementById('tab-signup');
+  const title = document.getElementById('modal-title');
+  const sub = document.getElementById('modal-sub');
+  const btnText = document.getElementById('auth-btn-text');
+  const error = document.getElementById('modal-error');
+  if (!signinTab || !signupTab || !title || !sub || !error) {
+    console.warn('switchTab: one or more required modal elements not found');
+    return;
+  }
+  signinTab.classList.toggle('active', tab === 'signin');
+  signupTab.classList.toggle('active', tab === 'signup');
+  title.textContent = tab === 'signin' ? 'Welcome back' : 'Create account';
+  sub.textContent = tab === 'signin' ? 'Sign in to your AuthFlow account' : 'Start managing auth for your apps';
+  // btnText is temporarily absent while the submit spinner is showing; guard it independently
+  if (btnText) btnText.textContent = tab === 'signin' ? 'Sign In' : 'Create Account';
+  error.style.display = 'none';
 }
 
 async function handleAuth(e) {
@@ -700,6 +714,7 @@ async function handleAuth(e) {
 }
 
 async function signOut() {
+  if (!supabase) { onLogout(); return; }
   await supabase.auth.signOut();
   showToast('Signed out', 'info');
 }
