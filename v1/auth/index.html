@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AuthFlow – Sign In</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a40;
+    --accent: #7c3aed;
+    --accent2: #6d28d9;
+    --accent-light: #a78bfa;
+    --blue: #3b82f6;
+    --text: #f1f0ff;
+    --text2: #a0a0c0;
+    --text3: #6060a0;
+    --success: #10b981;
+    --error: #ef4444;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  body::before { content:''; position:fixed; inset:0; background:radial-gradient(ellipse 60% 50% at 50% 10%, rgba(124,58,237,0.15) 0%, transparent 70%); pointer-events:none; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+  .container { width: 100%; max-width: 420px; animation: fadeIn .4s ease; position:relative; }
+  .logo { text-align:center; margin-bottom:28px; }
+  .logo-name { font-size:1.4rem; font-weight:800; background:linear-gradient(135deg,#a78bfa,#60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .logo-app { margin-top:8px; font-size:.875rem; color:var(--text2); }
+  .logo-app strong { color:var(--text); }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.5); }
+  .card-header { padding:28px 28px 0; text-align:center; }
+  .card-header h1 { font-size:1.4rem; font-weight:800; margin-bottom:6px; }
+  .card-header p { color:var(--text2); font-size:.875rem; margin-bottom:0; }
+  .card-body { padding:28px; }
+
+  .tabs { display:flex; gap:4px; background:var(--surface2); border-radius:8px; padding:4px; margin-bottom:24px; }
+  .tab { flex:1; padding:8px; text-align:center; border-radius:6px; cursor:pointer; font-size:.875rem; font-weight:600; color:var(--text2); transition:all .2s; }
+  .tab.active { background:var(--accent); color:#fff; }
+
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-size:.82rem; font-weight:600; color:var(--text2); margin-bottom:5px; }
+  .form-group input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:11px 14px; color:var(--text); font-size:.9rem; outline:none; transition:border-color .2s; }
+  .form-group input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,58,237,0.15); }
+  .form-group input::placeholder { color:var(--text3); }
+
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:11px 16px; border-radius:var(--radius); border:none; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; outline:none; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),var(--blue)); color:#fff; }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(124,58,237,0.4); }
+  .btn-ghost { background:var(--surface2); border:1px solid var(--border); color:var(--text2); }
+  .btn-ghost:hover { border-color:var(--accent); color:var(--text); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+
+  .divider { display:flex; align-items:center; gap:12px; margin:20px 0; color:var(--text3); font-size:.8rem; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .providers { display:flex; flex-direction:column; gap:10px; }
+  .provider-btn { display:flex; align-items:center; gap:12px; width:100%; padding:11px 16px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:.875rem; font-weight:600; cursor:pointer; transition:all .2s; text-align:left; }
+  .provider-btn:hover { border-color:var(--accent); background:rgba(124,58,237,0.08); transform:translateY(-1px); }
+  .provider-icon { width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0; }
+
+  .error-banner { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius); padding:12px 16px; font-size:.85rem; color:#fca5a5; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .success-banner { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:var(--radius); padding:12px 16px; font-size:.85rem; color:#6ee7b7; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+  .loading-screen { display:flex; flex-direction:column; align-items:center; gap:16px; padding:60px 20px; }
+  .loading-screen .spinner { width:36px; height:36px; border-width:3px; border-color:rgba(124,58,237,.2); border-top-color:var(--accent); }
+  .loading-text { color:var(--text2); font-size:.875rem; animation:pulse 1.5s infinite; }
+
+  .footer-link { text-align:center; margin-top:20px; font-size:.8rem; color:var(--text3); }
+  .footer-link a { color:var(--accent-light); }
+
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:600; background:rgba(124,58,237,0.15); color:var(--accent-light); }
+
+  .processing { text-align:center; padding:60px 20px; }
+  .processing h2 { font-size:1.2rem; margin-bottom:8px; }
+  .processing p { color:var(--text2); font-size:.875rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <div class="logo-name">⚡ AuthFlow</div>
+    <div class="logo-app" id="app-name-header"></div>
+  </div>
+
+  <!-- LOADING STATE -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading...</div>
+  </div>
+
+  <!-- ERROR STATE -->
+  <div id="error-screen" style="display:none">
+    <div class="card">
+      <div class="card-body" style="text-align:center;padding:40px">
+        <div style="font-size:2.5rem;margin-bottom:16px">⚠️</div>
+        <h2 style="margin-bottom:8px">Configuration Error</h2>
+        <p style="color:var(--text2);font-size:.875rem" id="error-msg">Unable to load app configuration.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROCESSING (OAuth callback) -->
+  <div id="processing-screen" style="display:none">
+    <div class="card">
+      <div class="card-body processing">
+        <div class="spinner" style="width:36px;height:36px;border-color:rgba(124,58,237,.2);border-top-color:var(--accent);margin:0 auto 20px"></div>
+        <h2>Completing Sign In</h2>
+        <p style="color:var(--text2)">Processing your authentication...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN AUTH CARD -->
+  <div id="auth-screen" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <h1 id="auth-title">Sign in</h1>
+        <p id="auth-sub">to continue to <strong id="app-display-name">your app</strong></p>
+      </div>
+      <div class="card-body">
+        <div id="global-error" class="error-banner" style="display:none"></div>
+        <div id="global-success" class="success-banner" style="display:none"></div>
+
+        <!-- OAUTH PROVIDERS -->
+        <div id="oauth-providers" class="providers"></div>
+
+        <!-- EMAIL SECTION -->
+        <div id="email-section" style="display:none">
+          <div id="email-divider" class="divider">or continue with email</div>
+          <div class="tabs">
+            <div class="tab active" id="email-tab-signin" onclick="switchEmailTab('signin')">Sign In</div>
+            <div class="tab" id="email-tab-signup" onclick="switchEmailTab('signup')">Sign Up</div>
+          </div>
+          <form id="email-form" onsubmit="handleEmailAuth(event)">
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="email-input" placeholder="you@example.com" required autocomplete="email" />
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="password-input" placeholder="••••••••" required minlength="8" autocomplete="current-password" />
+            </div>
+            <div class="form-group" id="confirm-pw-group" style="display:none">
+              <label>Confirm Password</label>
+              <input type="password" id="confirm-password-input" placeholder="••••••••" minlength="8" />
+            </div>
+            <button type="submit" class="btn btn-primary" id="email-submit-btn">
+              <span id="email-btn-label">Sign In</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- NO PROVIDERS STATE -->
+        <div id="no-providers" style="display:none;text-align:center;padding:20px">
+          <div style="font-size:2rem;margin-bottom:12px">🔒</div>
+          <p style="color:var(--text2);font-size:.875rem">No authentication providers are enabled for this app.</p>
+        </div>
+      </div>
+    </div>
+    <div class="footer-link">
+      Secured by <a href="/" target="_blank">AuthFlow</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://lqkpxervwakucksrnoss.supabase.co';
+const FN_BASE = `${SUPABASE_URL}/functions/v1`;
+
+const OAUTH_PROVIDERS = {
+  google: {
+    name: 'Google', icon: '🔵', color: '#4285F4',
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    scope: 'openid email profile'
+  },
+  github: {
+    name: 'GitHub', icon: '⚫', color: '#333',
+    authUrl: 'https://github.com/login/oauth/authorize',
+    scope: 'read:user user:email'
+  },
+  microsoft: {
+    name: 'Microsoft', icon: '🟦', color: '#00A4EF',
+    authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    scope: 'openid email profile'
+  },
+  x: {
+    name: 'X / Twitter', icon: '🐦', color: '#1DA1F2',
+    authUrl: 'https://twitter.com/i/oauth2/authorize',
+    scope: 'tweet.read users.read'
+  },
+  linkedin: {
+    name: 'LinkedIn', icon: '🔷', color: '#0A66C2',
+    authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
+    scope: 'r_liteprofile r_emailaddress'
+  },
+  patreon: {
+    name: 'Patreon', icon: '🟠', color: '#FF424D',
+    authUrl: 'https://www.patreon.com/oauth2/authorize',
+    scope: 'identity identity[email]'
+  },
+  reddit: {
+    name: 'Reddit', icon: '🔴', color: '#FF4500',
+    authUrl: 'https://www.reddit.com/api/v1/authorize',
+    scope: 'identity'
+  },
+  discord: {
+    name: 'Discord', icon: '🟣', color: '#5865F2',
+    authUrl: 'https://discord.com/api/oauth2/authorize',
+    scope: 'identify email'
+  }
+};
+
+let appConfig = null;
+let currentEmailTab = 'signin';
+const params = new URLSearchParams(window.location.search);
+const publishableKey = params.get('key');
+const redirectUri = params.get('redirect_uri');
+const state = params.get('state');
+const oauthCode = params.get('code');
+const oauthProvider = params.get('provider');
+const oauthError = params.get('error');
+
+async function init() {
+  // OAuth callback
+  if (oauthCode && oauthProvider) {
+    showScreen('processing');
+    await handleOAuthCallback(oauthProvider, oauthCode);
+    return;
+  }
+  if (oauthError) {
+    showScreen('auth');
+    showError('OAuth error: ' + oauthError);
+    return;
+  }
+  if (!publishableKey) {
+    showScreen('error');
+    document.getElementById('error-msg').textContent = 'Missing publishable key parameter (?key=...).';
+    return;
+  }
+  if (!redirectUri) {
+    showScreen('error');
+    document.getElementById('error-msg').textContent = 'Missing redirect_uri parameter.';
+    return;
+  }
+
+  // Fetch app config
+  try {
+    const res = await fetch(`${FN_BASE}/auth-config?key=${encodeURIComponent(publishableKey)}`);
+    if (!res.ok) throw new Error(await res.text());
+    appConfig = await res.json();
+  } catch (e) {
+    showScreen('error');
+    document.getElementById('error-msg').textContent = 'Failed to load app configuration: ' + e.message;
+    return;
+  }
+
+  renderAuth();
+  showScreen('auth');
+}
+
+function renderAuth() {
+  document.getElementById('app-display-name').textContent = appConfig.name;
+  document.getElementById('app-name-header').innerHTML = `Signing in to <strong>${esc(appConfig.name)}</strong>`;
+
+  const providers = appConfig.providers || [];
+  const oauthEnabled = providers.filter(p => p !== 'email');
+  const emailEnabled = providers.includes('email');
+
+  if (!providers.length) {
+    document.getElementById('no-providers').style.display = 'block';
+    return;
+  }
+
+  // OAuth buttons
+  const oauthContainer = document.getElementById('oauth-providers');
+  if (oauthEnabled.length) {
+    oauthContainer.innerHTML = oauthEnabled.map(pid => {
+      const p = OAUTH_PROVIDERS[pid] || { name: pid, icon: '🔑', color: '#666' };
+      return `<button class="provider-btn" onclick="startOAuth('${pid}')">
+        <div class="provider-icon" style="background:${p.color}22">${p.icon}</div>
+        Continue with ${p.name}
+      </button>`;
+    }).join('');
+  }
+
+  if (emailEnabled) {
+    document.getElementById('email-section').style.display = 'block';
+    if (!oauthEnabled.length) {
+      document.getElementById('email-divider').style.display = 'none';
+    }
+  }
+}
+
+function switchEmailTab(tab) {
+  currentEmailTab = tab;
+  document.getElementById('email-tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('email-tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('email-btn-label').textContent = tab === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('confirm-pw-group').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-title').textContent = tab === 'signin' ? 'Sign in' : 'Create account';
+  hideMessages();
+}
+
+async function handleEmailAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('email-input').value.trim();
+  const password = document.getElementById('password-input').value;
+  const btn = document.getElementById('email-submit-btn');
+  hideMessages();
+
+  if (currentEmailTab === 'signup') {
+    const confirm = document.getElementById('confirm-password-input').value;
+    if (password !== confirm) { showError('Passwords do not match.'); return; }
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Loading...';
+
+  try {
+    const endpoint = currentEmailTab === 'signup' ? 'auth-handler/signup' : 'auth-handler/signin';
+    const res = await fetch(`${FN_BASE}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, app_key: publishableKey })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Authentication failed');
+    if (currentEmailTab === 'signup') {
+      showSuccess('Account created! Signing you in...');
+      setTimeout(() => finishAuth(data.token), 1000);
+    } else {
+      finishAuth(data.token);
+    }
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.innerHTML = `<span id="email-btn-label">${currentEmailTab === 'signin' ? 'Sign In' : 'Create Account'}</span>`;
+  }
+}
+
+function startOAuth(provider) {
+  const p = OAUTH_PROVIDERS[provider];
+  if (!p) return;
+  const cfg = (appConfig.provider_configs || []).find(c => c.provider === provider);
+  if (!cfg || !cfg.client_id) { showError(`${p.name} is not fully configured.`); return; }
+
+  const callbackUrl = `${window.location.origin}${window.location.pathname}?key=${encodeURIComponent(publishableKey)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state || '')}&provider=${provider}`;
+  const oauthState = btoa(encodeURIComponent(JSON.stringify({ redirectUri, state, publishableKey, provider })));
+
+  const qp = new URLSearchParams({
+    client_id: cfg.client_id,
+    redirect_uri: callbackUrl,
+    response_type: 'code',
+    scope: p.scope,
+    state: oauthState
+  });
+  window.location.href = `${p.authUrl}?${qp}`;
+}
+
+async function handleOAuthCallback(provider, code) {
+  const storedState = params.get('state');
+  function parseState(s) {
+    try { return JSON.parse(decodeURIComponent(atob(s))); } catch { return {}; }
+  }
+  try {
+    const res = await fetch(`${FN_BASE}/auth-handler/oauth-callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        code,
+        redirect_uri: (() => {
+          const u = new URL(window.location.href);
+          u.searchParams.delete('code');
+          u.searchParams.delete('provider');
+          return u.toString();
+        })(),
+        app_key: publishableKey || (storedState ? parseState(storedState).publishableKey : null),
+        state: storedState
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'OAuth failed');
+    const parsed = storedState ? parseState(storedState) : {};
+    finishAuth(data.token, parsed.redirectUri || redirectUri);
+  } catch (err) {
+    showScreen('auth');
+    showError('OAuth sign-in failed: ' + err.message);
+  }
+}
+
+function finishAuth(token, overrideRedirect) {
+  const target = overrideRedirect || redirectUri;
+  if (!target) { showError('No redirect URI configured.'); return; }
+
+  // Allow https always; allow http only for localhost/127.0.0.1 (development)
+  let targetUrl;
+  try {
+    targetUrl = new URL(target);
+    const isHttps = targetUrl.protocol === 'https:';
+    const isLocalHttp = targetUrl.protocol === 'http:' &&
+      (targetUrl.hostname === 'localhost' || targetUrl.hostname === '127.0.0.1');
+    if (!isHttps && !isLocalHttp) {
+      showError('Redirect URI must use https (or http://localhost for development).'); return;
+    }
+  } catch {
+    showError('Invalid redirect URI.'); return;
+  }
+
+  const allowed = appConfig?.redirect_urls || [];
+  if (allowed.length === 0) { showError('No redirect URLs configured for this app.'); return; }
+
+  const targetBase = targetUrl.origin + targetUrl.pathname;
+  const isAllowed = allowed.some(u => {
+    try {
+      const allowedUrl = new URL(u);
+      return allowedUrl.origin === targetUrl.origin &&
+             (allowedUrl.pathname === targetUrl.pathname || allowedUrl.pathname === '/');
+    } catch { return false; }
+  });
+
+  if (!isAllowed) { showError('Redirect URI not in the allowed list.'); return; }
+
+  // Reconstruct the URL from the parsed object to avoid tainted-string redirection
+  targetUrl.searchParams.set('token', token);
+  if (state) targetUrl.searchParams.set('state', state);
+  window.location.assign(targetUrl.toString());
+}
+
+function showScreen(name) {
+  ['loading', 'error', 'auth', 'processing'].forEach(s => {
+    document.getElementById(s + '-screen').style.display = s === name ? '' : 'none';
+  });
+}
+
+function showError(msg) {
+  const el = document.getElementById('global-error');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'flex';
+}
+function showSuccess(msg) {
+  const el = document.getElementById('global-success');
+  el.textContent = '✓ ' + msg;
+  el.style.display = 'flex';
+}
+function hideMessages() {
+  document.getElementById('global-error').style.display = 'none';
+  document.getElementById('global-success').style.display = 'none';
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+init();
+</script>
+</body>
+</html>

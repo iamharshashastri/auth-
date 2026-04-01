@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AuthFlow – Multi-Tenant Authentication</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #22223a;
+    --border: #2a2a40;
+    --accent: #7c3aed;
+    --accent2: #6d28d9;
+    --accent-light: #a78bfa;
+    --blue: #3b82f6;
+    --blue-light: #93c5fd;
+    --text: #f1f0ff;
+    --text2: #a0a0c0;
+    --text3: #6060a0;
+    --success: #10b981;
+    --error: #ef4444;
+    --warning: #f59e0b;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; overflow-x: hidden; }
+  a { color: var(--accent-light); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ANIMATIONS */
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes glow { 0%,100% { box-shadow:0 0 20px rgba(124,58,237,0.3); } 50% { box-shadow:0 0 40px rgba(124,58,237,0.6); } }
+  @keyframes gradient { 0% { background-position:0% 50%; } 50% { background-position:100% 50%; } 100% { background-position:0% 50%; } }
+
+  .fade-in { animation: fadeIn 0.4s ease forwards; }
+  .slide-in { animation: slideIn 0.3s ease forwards; }
+
+  /* NAV */
+  nav { position: fixed; top:0; left:0; right:0; z-index:100; backdrop-filter:blur(20px); background:rgba(10,10,15,0.8); border-bottom:1px solid var(--border); height:64px; display:flex; align-items:center; padding:0 32px; gap:16px; }
+  .nav-logo { font-size:1.3rem; font-weight:800; background:linear-gradient(135deg,#a78bfa,#60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-0.5px; }
+  .nav-spacer { flex:1; }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:8px 18px; border-radius:var(--radius); border:none; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; outline:none; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),var(--blue)); color:#fff; }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(124,58,237,0.4); }
+  .btn-ghost { background:transparent; color:var(--text2); border:1px solid var(--border); }
+  .btn-ghost:hover { background:var(--surface2); color:var(--text); border-color:var(--accent); }
+  .btn-danger { background:rgba(239,68,68,0.15); color:var(--error); border:1px solid rgba(239,68,68,0.3); }
+  .btn-danger:hover { background:rgba(239,68,68,0.25); }
+  .btn-sm { padding:5px 12px; font-size:.8rem; }
+  .btn-icon { padding:8px; width:36px; height:36px; justify-content:center; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+
+  /* LANDING */
+  #landing { display:block; }
+  .hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:80px 24px 60px; position:relative; overflow:hidden; }
+  .hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 80% 50% at 50% 20%, rgba(124,58,237,0.15) 0%, transparent 70%); pointer-events:none; }
+  .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.3); border-radius:999px; padding:6px 16px; font-size:.8rem; font-weight:600; color:var(--accent-light); margin-bottom:28px; }
+  .hero-badge::before { content:''; width:8px; height:8px; background:var(--accent-light); border-radius:50%; animation:pulse 2s infinite; }
+  .hero h1 { font-size:clamp(2.5rem,7vw,5rem); font-weight:900; line-height:1.1; letter-spacing:-2px; margin-bottom:20px; background:linear-gradient(135deg,#fff 30%,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hero p { font-size:1.15rem; color:var(--text2); max-width:560px; margin:0 auto 40px; line-height:1.7; }
+  .hero-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+
+  .features { padding:80px 24px; max-width:1100px; margin:0 auto; }
+  .features h2 { text-align:center; font-size:2rem; font-weight:800; margin-bottom:12px; }
+  .features-sub { text-align:center; color:var(--text2); margin-bottom:60px; }
+  .features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; }
+  .feature-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:28px; transition:all .3s; }
+  .feature-card:hover { border-color:var(--accent); transform:translateY(-4px); box-shadow:0 8px 40px rgba(124,58,237,0.15); }
+  .feature-icon { width:48px; height:48px; background:linear-gradient(135deg,rgba(124,58,237,0.2),rgba(59,130,246,0.2)); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; margin-bottom:16px; }
+  .feature-card h3 { font-size:1.05rem; font-weight:700; margin-bottom:8px; }
+  .feature-card p { color:var(--text2); font-size:.9rem; line-height:1.6; }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.open { display:flex; animation:fadeIn .2s ease; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:36px; width:100%; max-width:420px; position:relative; box-shadow:var(--shadow); }
+  .modal h2 { font-size:1.5rem; font-weight:800; margin-bottom:6px; }
+  .modal-sub { color:var(--text2); font-size:.9rem; margin-bottom:28px; }
+  .modal-close { position:absolute; top:16px; right:16px; background:none; border:none; color:var(--text2); font-size:1.4rem; cursor:pointer; padding:4px 8px; border-radius:6px; }
+  .modal-close:hover { background:var(--surface2); color:var(--text); }
+  .modal-tabs { display:flex; gap:4px; background:var(--surface2); border-radius:8px; padding:4px; margin-bottom:24px; }
+  .modal-tab { flex:1; padding:7px; text-align:center; border-radius:6px; cursor:pointer; font-size:.875rem; font-weight:600; color:var(--text2); transition:all .2s; }
+  .modal-tab.active { background:var(--accent); color:#fff; }
+
+  /* FORMS */
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-size:.85rem; font-weight:600; color:var(--text2); margin-bottom:6px; }
+  .form-group input, .form-group select, .form-group textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; color:var(--text); font-size:.9rem; outline:none; transition:border-color .2s; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,58,237,0.15); }
+  .form-group input::placeholder { color:var(--text3); }
+  .form-group textarea { resize:vertical; min-height:80px; font-family:inherit; }
+  .form-error { color:var(--error); font-size:.8rem; margin-top:4px; }
+  .form-full { width:100%; margin-top:8px; }
+
+  /* DASHBOARD */
+  #dashboard { display:none; }
+  .dash-layout { display:flex; height:100vh; overflow:hidden; }
+
+  /* SIDEBAR */
+  .sidebar { width:240px; min-width:240px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-header { padding:20px 20px 12px; border-bottom:1px solid var(--border); }
+  .sidebar-logo { font-size:1.2rem; font-weight:800; background:linear-gradient(135deg,#a78bfa,#60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .sidebar-user { padding:12px 20px; border-bottom:1px solid var(--border); }
+  .sidebar-user-email { font-size:.78rem; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sidebar-app-selector { padding:12px 20px; border-bottom:1px solid var(--border); }
+  .sidebar-app-selector label { font-size:.75rem; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:6px; }
+  .app-select { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; cursor:pointer; }
+  .sidebar-nav { flex:1; padding:12px 10px; overflow-y:auto; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; cursor:pointer; font-size:.9rem; color:var(--text2); transition:all .2s; margin-bottom:2px; }
+  .nav-item:hover { background:var(--surface2); color:var(--text); }
+  .nav-item.active { background:rgba(124,58,237,0.15); color:var(--accent-light); font-weight:600; }
+  .nav-item svg { opacity:.7; flex-shrink:0; }
+  .nav-item.active svg { opacity:1; }
+  .sidebar-footer { padding:12px 16px; border-top:1px solid var(--border); }
+
+  /* MAIN CONTENT */
+  .dash-main { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
+  .dash-topbar { padding:20px 28px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--surface); }
+  .dash-topbar h1 { font-size:1.25rem; font-weight:700; }
+  .dash-content { padding:28px; flex:1; }
+
+  /* TABS */
+  .tab-panel { display:none; animation:fadeIn .3s ease; }
+  .tab-panel.active { display:block; }
+
+  /* CARDS */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .card-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .card-header h3 { font-size:1rem; font-weight:700; }
+  .card-body { padding:20px; }
+
+  /* APP CARD */
+  .app-card { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; margin-bottom:16px; transition:all .2s; }
+  .app-card:hover { border-color:var(--accent); }
+  .app-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .app-card-name { font-size:1.05rem; font-weight:700; }
+  .app-card-desc { color:var(--text2); font-size:.85rem; margin-bottom:16px; }
+  .key-row { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; margin-bottom:8px; }
+  .key-label { font-size:.75rem; color:var(--text3); font-weight:600; min-width:90px; }
+  .key-value { font-family:monospace; font-size:.8rem; color:var(--accent-light); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .copy-btn { background:none; border:none; color:var(--text2); cursor:pointer; padding:4px; border-radius:4px; flex-shrink:0; }
+  .copy-btn:hover { color:var(--text); background:var(--border); }
+
+  /* BADGE */
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
+  .badge-success { background:rgba(16,185,129,0.15); color:var(--success); }
+  .badge-error { background:rgba(239,68,68,0.15); color:var(--error); }
+  .badge-warning { background:rgba(245,158,11,0.15); color:var(--warning); }
+  .badge-purple { background:rgba(124,58,237,0.15); color:var(--accent-light); }
+
+  /* TABLE */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; padding:10px 14px; font-size:.78rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border); }
+  td { padding:12px 14px; font-size:.875rem; border-bottom:1px solid var(--border); }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(255,255,255,0.02); }
+
+  /* PROVIDER GRID */
+  .provider-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+  .provider-card { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; }
+  .provider-card.enabled { border-color:rgba(124,58,237,0.4); }
+  .provider-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .provider-name { display:flex; align-items:center; gap:10px; font-weight:600; }
+  .provider-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1rem; }
+  .toggle { position:relative; width:44px; height:24px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:999px; cursor:pointer; transition:.2s; }
+  .toggle-slider::before { content:''; position:absolute; width:18px; height:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+  .toggle input:checked + .toggle-slider { background:var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform:translateX(20px); }
+  .toggle input:disabled + .toggle-slider { opacity:.5; cursor:not-allowed; }
+
+  /* WEBHOOK */
+  .webhook-row { display:flex; align-items:center; gap:10px; padding:12px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; }
+  .webhook-url { flex:1; font-family:monospace; font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .webhook-events { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .event-chip { background:rgba(124,58,237,0.15); color:var(--accent-light); border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:600; }
+
+  /* REDIRECT URLS */
+  .url-row { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; margin-bottom:6px; }
+  .url-text { flex:1; font-family:monospace; font-size:.85rem; }
+
+  /* TOAST */
+  #toast-container { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+  .toast { display:flex; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 18px; min-width:260px; max-width:380px; box-shadow:var(--shadow); animation:slideIn .3s ease; font-size:.875rem; }
+  .toast-success { border-left:3px solid var(--success); }
+  .toast-error { border-left:3px solid var(--error); }
+  .toast-info { border-left:3px solid var(--blue); }
+  .toast-icon { font-size:1.1rem; }
+
+  /* LOADING */
+  .spinner { width:20px; height:20px; border:2px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; flex-shrink:0; }
+  .skeleton { background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%); background-size:200% 100%; animation:gradient 1.5s infinite; border-radius:6px; }
+
+  /* EMPTY STATE */
+  .empty-state { text-align:center; padding:60px 20px; }
+  .empty-state-icon { font-size:3rem; margin-bottom:16px; opacity:.4; }
+  .empty-state h3 { font-size:1.1rem; font-weight:700; margin-bottom:8px; }
+  .empty-state p { color:var(--text2); font-size:.9rem; }
+
+  /* DIVIDER */
+  .divider { height:1px; background:var(--border); margin:20px 0; }
+
+  /* DANGER ZONE */
+  .danger-zone { border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-lg); padding:20px; }
+  .danger-zone h3 { color:var(--error); font-size:1rem; margin-bottom:12px; }
+
+  /* INFO BANNER */
+  .banner { border-radius:var(--radius); padding:12px 16px; font-size:.875rem; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+  .banner-error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+  .banner-info { background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:var(--blue-light); }
+  .banner-success { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:#6ee7b7; }
+
+  /* RESPONSIVE */
+  @media(max-width:768px) {
+    .sidebar { width:200px; min-width:200px; }
+    .hero h1 { font-size:2.5rem; }
+    .features-grid { grid-template-columns:1fr; }
+    .provider-grid { grid-template-columns:1fr; }
+  }
+  @media(max-width:600px) {
+    .dash-layout { flex-direction:column; }
+    .sidebar { width:100%; min-width:unset; height:auto; flex-direction:row; overflow-x:auto; }
+  }
+
+  /* SECTION HEADER */
+  .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .section-header h2 { font-size:1.1rem; font-weight:700; }
+
+  /* INPUT GROUP */
+  .input-group { display:flex; gap:8px; }
+  .input-group input { flex:1; }
+
+  /* GRID 2 */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:600px) { .grid-2 { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="main-nav">
+  <span class="nav-logo">⚡ AuthFlow</span>
+  <span class="nav-spacer"></span>
+  <button class="btn btn-ghost btn-sm" id="nav-docs" onclick="window.location='/api/'">Docs</button>
+  <button class="btn btn-ghost btn-sm" id="nav-signin" onclick="openModal('signin')">Sign In</button>
+  <button class="btn btn-primary btn-sm" id="nav-signup" onclick="openModal('signup')">Get Started</button>
+  <button class="btn btn-ghost btn-sm" id="nav-signout" style="display:none" onclick="signOut()">Sign Out</button>
+</nav>
+
+<!-- LANDING -->
+<div id="landing">
+  <section class="hero">
+    <div class="hero-badge">✦ Now in Public Beta</div>
+    <h1>Authentication<br/>for Every App</h1>
+    <p>AuthFlow gives your multi-tenant apps drop-in auth with OAuth, magic links, and JWTs — no backend required.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" style="padding:12px 28px;font-size:1rem" onclick="openModal('signup')">Start for free →</button>
+      <button class="btn btn-ghost" style="padding:12px 28px;font-size:1rem" onclick="window.location='/api/'">View Docs</button>
+    </div>
+  </section>
+
+  <section class="features">
+    <h2>Everything you need</h2>
+    <p class="features-sub">AuthFlow handles the hard parts so you can ship faster.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <h3>Multi-Provider OAuth</h3>
+        <p>Support Google, GitHub, Microsoft, Discord, LinkedIn, Patreon, Reddit, and X out of the box.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏢</div>
+        <h3>True Multi-Tenancy</h3>
+        <p>Each app gets isolated user pools, separate API keys, and independent provider configs.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔑</div>
+        <h3>JWT-Based Sessions</h3>
+        <p>Issued JWTs that your app can verify independently, with configurable expiry.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📡</div>
+        <h3>Webhooks</h3>
+        <p>Real-time event delivery for user lifecycle events with HMAC-signed payloads.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3>bcrypt Passwords</h3>
+        <p>App user passwords are bcrypt-hashed with per-app salts — never stored in plaintext.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Edge Functions</h3>
+        <p>Globally distributed auth running on Supabase Edge — sub-50ms response times worldwide.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal fade-in">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modal-title">Welcome back</h2>
+    <p class="modal-sub" id="modal-sub">Sign in to your AuthFlow account</p>
+    <div class="modal-tabs">
+      <div class="modal-tab active" id="tab-signin" onclick="switchTab('signin')">Sign In</div>
+      <div class="modal-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
+    </div>
+    <div id="modal-error" class="banner banner-error" style="display:none"></div>
+    <form id="auth-form" onsubmit="handleAuth(event)">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@example.com" required />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="••••••••" required minlength="8" />
+      </div>
+      <button type="submit" class="btn btn-primary form-full" id="auth-submit">
+        <span id="auth-btn-text">Sign In</span>
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="dash-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">⚡ AuthFlow</div>
+      </div>
+      <div class="sidebar-user">
+        <div class="sidebar-user-email" id="sb-user-email">—</div>
+      </div>
+      <div class="sidebar-app-selector">
+        <label>Current App</label>
+        <select class="app-select" id="app-selector" onchange="selectApp(this.value)">
+          <option value="">Select an app...</option>
+        </select>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item active" onclick="showTab('apps')" id="nav-apps">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Apps
+        </div>
+        <div class="nav-item" onclick="showTab('keys')" id="nav-keys">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          API Keys
+        </div>
+        <div class="nav-item" onclick="showTab('webhooks')" id="nav-webhooks">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+          Webhooks
+        </div>
+        <div class="nav-item" onclick="showTab('users')" id="nav-users">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </div>
+        <div class="nav-item" onclick="showTab('providers')" id="nav-providers">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Providers
+        </div>
+        <div class="nav-item" onclick="showTab('settings')" id="nav-settings">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="signOut()">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="dash-main">
+      <div class="dash-topbar">
+        <h1 id="topbar-title">Apps</h1>
+        <div id="topbar-actions"></div>
+      </div>
+      <div class="dash-content">
+
+        <!-- APPS TAB -->
+        <div class="tab-panel active" id="tab-apps">
+          <div class="section-header">
+            <h2>Your Apps</h2>
+            <button class="btn btn-primary btn-sm" onclick="toggleCreateApp()">+ New App</button>
+          </div>
+
+          <div id="create-app-form" style="display:none" class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>Create New App</h3></div>
+            <div class="card-body">
+              <div class="grid-2">
+                <div class="form-group">
+                  <label>App Name</label>
+                  <input type="text" id="new-app-name" placeholder="My Awesome App" />
+                </div>
+                <div class="form-group">
+                  <label>Description (optional)</label>
+                  <input type="text" id="new-app-desc" placeholder="What does this app do?" />
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button class="btn btn-primary btn-sm" onclick="createApp()">Create App</button>
+                <button class="btn btn-ghost btn-sm" onclick="toggleCreateApp()">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="apps-list"></div>
+        </div>
+
+        <!-- API KEYS TAB -->
+        <div class="tab-panel" id="tab-keys">
+          <div id="keys-no-app" class="empty-state">
+            <div class="empty-state-icon">🔑</div>
+            <h3>No App Selected</h3>
+            <p>Select an app from the sidebar to manage its API keys.</p>
+          </div>
+          <div id="keys-content" style="display:none">
+            <div class="section-header">
+              <h2>API Keys</h2>
+              <button class="btn btn-primary btn-sm" onclick="showAddKeyModal()">+ Add Key</button>
+            </div>
+            <div class="card" style="margin-bottom:20px">
+              <div class="card-header"><h3>Default Keys</h3></div>
+              <div class="card-body" id="default-keys-content"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Additional API Keys</h3></div>
+              <div class="card-body" id="extra-keys-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WEBHOOKS TAB -->
+        <div class="tab-panel" id="tab-webhooks">
+          <div id="webhooks-no-app" class="empty-state">
+            <div class="empty-state-icon">📡</div>
+            <h3>No App Selected</h3>
+            <p>Select an app to manage webhooks.</p>
+          </div>
+          <div id="webhooks-content" style="display:none">
+            <div class="section-header">
+              <h2>Webhooks</h2>
+              <button class="btn btn-primary btn-sm" onclick="toggleAddWebhook()">+ Add Webhook</button>
+            </div>
+            <div id="add-webhook-form" style="display:none" class="card" style="margin-bottom:20px">
+              <div class="card-header"><h3>Add Webhook</h3></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>Endpoint URL</label>
+                  <input type="url" id="new-webhook-url" placeholder="https://your-app.com/webhooks/auth" />
+                </div>
+                <div class="form-group">
+                  <label>Events</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" value="user.created" checked class="webhook-event-cb"> user.created</label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" value="user.login" checked class="webhook-event-cb"> user.login</label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" value="user.updated" class="webhook-event-cb"> user.updated</label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" value="user.deleted" class="webhook-event-cb"> user.deleted</label>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-primary btn-sm" onclick="addWebhook()">Add Webhook</button>
+                  <button class="btn btn-ghost btn-sm" onclick="toggleAddWebhook()">Cancel</button>
+                </div>
+              </div>
+            </div>
+            <div id="webhooks-list"></div>
+          </div>
+        </div>
+
+        <!-- USERS TAB -->
+        <div class="tab-panel" id="tab-users">
+          <div id="users-no-app" class="empty-state">
+            <div class="empty-state-icon">👥</div>
+            <h3>No App Selected</h3>
+            <p>Select an app to view its end-users.</p>
+          </div>
+          <div id="users-content" style="display:none">
+            <div class="section-header">
+              <h2>App Users</h2>
+              <span id="users-count" class="badge badge-purple"></span>
+            </div>
+            <div class="card">
+              <div class="card-body table-wrap" id="users-table-wrap"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROVIDERS TAB -->
+        <div class="tab-panel" id="tab-providers">
+          <div id="providers-no-app" class="empty-state">
+            <div class="empty-state-icon">🌐</div>
+            <h3>No App Selected</h3>
+            <p>Select an app to configure providers.</p>
+          </div>
+          <div id="providers-content" style="display:none">
+            <div id="providers-error" class="banner banner-error" style="display:none">
+              ⚠️ At least one provider must remain enabled (besides Email).
+            </div>
+            <div class="section-header" style="margin-bottom:20px">
+              <h2>Auth Providers</h2>
+              <button class="btn btn-primary btn-sm" onclick="saveProviders()">Save Changes</button>
+            </div>
+            <div id="provider-grid" class="provider-grid"></div>
+
+            <div class="divider"></div>
+            <div class="section-header">
+              <h2>Allowed Redirect URLs</h2>
+              <button class="btn btn-primary btn-sm" onclick="addRedirectUrl()">+ Add URL</button>
+            </div>
+            <div class="banner banner-info">Only URLs in this list will be accepted as redirect targets after authentication.</div>
+            <div id="redirect-urls-list"></div>
+            <div class="input-group" style="margin-top:10px">
+              <input type="url" id="new-redirect-url" placeholder="https://your-app.com/callback" />
+              <button class="btn btn-primary btn-sm" onclick="addRedirectUrl()">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div class="tab-panel" id="tab-settings">
+          <div id="settings-no-app" class="empty-state">
+            <div class="empty-state-icon">⚙️</div>
+            <h3>No App Selected</h3>
+            <p>Select an app to edit its settings.</p>
+          </div>
+          <div id="settings-content" style="display:none">
+            <div class="section-header">
+              <h2>App Settings</h2>
+              <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Changes</button>
+            </div>
+            <div class="card" style="margin-bottom:20px">
+              <div class="card-header"><h3>General</h3></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>App Name</label>
+                  <input type="text" id="settings-name" />
+                </div>
+                <div class="form-group">
+                  <label>Description</label>
+                  <textarea id="settings-desc"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="danger-zone">
+              <h3>⚠️ Danger Zone</h3>
+              <p style="color:var(--text2);font-size:.875rem;margin-bottom:16px">Permanently delete this app and all its data. This action cannot be undone.</p>
+              <button class="btn btn-danger btn-sm" onclick="confirmDeleteApp()">Delete App</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- ADD KEY MODAL -->
+<div class="modal-overlay" id="add-key-modal">
+  <div class="modal fade-in">
+    <button class="modal-close" onclick="document.getElementById('add-key-modal').classList.remove('open')">✕</button>
+    <h2>Add API Key</h2>
+    <p class="modal-sub">Create an additional API key for this app</p>
+    <div class="form-group">
+      <label>Key Name</label>
+      <input type="text" id="new-key-name" placeholder="e.g. Production, Staging" />
+    </div>
+    <button class="btn btn-primary form-full" onclick="addApiKey()">Create Key</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://lqkpxervwakucksrnoss.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Sdi0YJz0IPwK9yV-0tLvCw_9IDZQhD8';
+const FN_BASE = `${SUPABASE_URL}/functions/v1`;
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let currentApps = [];
+let currentAppId = null;
+let currentTab = 'apps';
+let providerState = {};
+
+// ── INIT ──────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    await onLogin(session.user);
+  }
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (session) { await onLogin(session.user); }
+    else { onLogout(); }
+  });
+}
+
+async function onLogin(user) {
+  currentUser = user;
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('nav-signin').style.display = 'none';
+  document.getElementById('nav-signup').style.display = 'none';
+  document.getElementById('nav-signout').style.display = '';
+  document.getElementById('sb-user-email').textContent = user.email;
+  closeModal();
+  await loadApps();
+}
+
+function onLogout() {
+  currentUser = null; currentApps = []; currentAppId = null;
+  document.getElementById('landing').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('nav-signin').style.display = '';
+  document.getElementById('nav-signup').style.display = '';
+  document.getElementById('nav-signout').style.display = 'none';
+}
+
+// ── AUTH ──────────────────────────────────────────────
+let currentAuthTab = 'signin';
+
+function openModal(tab = 'signin') {
+  switchTab(tab);
+  document.getElementById('auth-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('auth-modal').classList.remove('open');
+  document.getElementById('modal-error').style.display = 'none';
+}
+function switchTab(tab) {
+  currentAuthTab = tab;
+  document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('modal-title').textContent = tab === 'signin' ? 'Welcome back' : 'Create account';
+  document.getElementById('modal-sub').textContent = tab === 'signin' ? 'Sign in to your AuthFlow account' : 'Start managing auth for your apps';
+  document.getElementById('auth-btn-text').textContent = tab === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('modal-error').style.display = 'none';
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Loading...';
+  document.getElementById('modal-error').style.display = 'none';
+
+  let error;
+  if (currentAuthTab === 'signin') {
+    ({ error } = await supabase.auth.signInWithPassword({ email, password }));
+  } else {
+    ({ error } = await supabase.auth.signUp({ email, password }));
+    if (!error) { showToast('Check your email to confirm your account!', 'info'); }
+  }
+
+  if (error) {
+    const el = document.getElementById('modal-error');
+    el.textContent = error.message;
+    el.style.display = 'flex';
+  }
+  btn.disabled = false;
+  btn.innerHTML = `<span id="auth-btn-text">${currentAuthTab === 'signin' ? 'Sign In' : 'Create Account'}</span>`;
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  showToast('Signed out', 'info');
+}
+
+// ── APPS ──────────────────────────────────────────────
+async function loadApps() {
+  const { data, error } = await supabase.from('apps').select('*').order('created_at', { ascending: false });
+  if (error) { showToast('Failed to load apps: ' + error.message, 'error'); return; }
+  currentApps = data || [];
+  renderAppSelector();
+  renderAppsList();
+}
+
+function renderAppSelector() {
+  const sel = document.getElementById('app-selector');
+  sel.innerHTML = '<option value="">Select an app...</option>';
+  currentApps.forEach(app => {
+    const opt = document.createElement('option');
+    opt.value = app.id;
+    opt.textContent = app.name;
+    if (app.id === currentAppId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function renderAppsList() {
+  const el = document.getElementById('apps-list');
+  if (!currentApps.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🚀</div><h3>No apps yet</h3><p>Create your first app to get started.</p></div>`;
+    return;
+  }
+  el.innerHTML = currentApps.map(app => `
+    <div class="app-card fade-in">
+      <div class="app-card-header">
+        <div class="app-card-name">${esc(app.name)}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge badge-success">Active</span>
+          <button class="btn btn-ghost btn-sm" onclick="selectApp('${app.id}');showTab('settings')">Settings</button>
+        </div>
+      </div>
+      ${app.description ? `<div class="app-card-desc">${esc(app.description)}</div>` : ''}
+      <div class="key-row">
+        <span class="key-label">Publishable Key</span>
+        <span class="key-value">${esc(app.publishable_key)}</span>
+        <button class="copy-btn" onclick="copyText('${esc(app.publishable_key)}','Publishable key copied')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <div class="key-row">
+        <span class="key-label">Secret Key</span>
+        <span class="key-value" style="filter:blur(4px);transition:filter .2s" onmouseover="this.style.filter='none'" onmouseout="this.style.filter='blur(4px)'">${esc(app.secret_key)}</span>
+        <button class="copy-btn" onclick="copyText('${esc(app.secret_key)}','Secret key copied')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <div style="margin-top:12px;font-size:.78rem;color:var(--text3)">Created ${new Date(app.created_at).toLocaleDateString()}</div>
+    </div>
+  `).join('');
+}
+
+function toggleCreateApp() {
+  const el = document.getElementById('create-app-form');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function createApp() {
+  const name = document.getElementById('new-app-name').value.trim();
+  const description = document.getElementById('new-app-desc').value.trim();
+  if (!name) { showToast('App name is required', 'error'); return; }
+  const { error } = await supabase.from('apps').insert({ name, description: description || null, owner_id: currentUser.id });
+  if (error) { showToast('Failed to create app: ' + error.message, 'error'); return; }
+  document.getElementById('new-app-name').value = '';
+  document.getElementById('new-app-desc').value = '';
+  toggleCreateApp();
+  showToast('App created!', 'success');
+  await loadApps();
+}
+
+function selectApp(id) {
+  currentAppId = id;
+  document.getElementById('app-selector').value = id;
+  const app = currentApps.find(a => a.id === id);
+  // Refresh current tab content
+  refreshCurrentTab();
+}
+
+function refreshCurrentTab() {
+  switch (currentTab) {
+    case 'keys': loadKeys(); break;
+    case 'webhooks': loadWebhooks(); break;
+    case 'users': loadUsers(); break;
+    case 'providers': loadProviders(); break;
+    case 'settings': loadSettings(); break;
+  }
+}
+
+// ── TAB NAV ────────────────────────────────────────────
+function showTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  const titles = { apps:'Apps', keys:'API Keys', webhooks:'Webhooks', users:'Users', providers:'Providers', settings:'Settings' };
+  document.getElementById('topbar-title').textContent = titles[name] || name;
+  refreshCurrentTab();
+}
+
+// ── API KEYS ───────────────────────────────────────────
+async function loadKeys() {
+  const noApp = document.getElementById('keys-no-app');
+  const content = document.getElementById('keys-content');
+  if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
+  noApp.style.display = 'none'; content.style.display = 'block';
+  const app = currentApps.find(a => a.id === currentAppId);
+  if (app) {
+    document.getElementById('default-keys-content').innerHTML = `
+      <div class="key-row"><span class="key-label">Publishable Key</span><span class="key-value">${esc(app.publishable_key)}</span><button class="copy-btn" onclick="copyText('${esc(app.publishable_key)}','Copied')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+      <div class="key-row"><span class="key-label">Secret Key</span><span class="key-value" style="filter:blur(4px)" onmouseover="this.style.filter='none'" onmouseout="this.style.filter='blur(4px)'">${esc(app.secret_key)}</span><button class="copy-btn" onclick="copyText('${esc(app.secret_key)}','Copied')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+    `;
+  }
+  const { data, error } = await supabase.from('api_keys').select('*').eq('app_id', currentAppId).order('created_at', { ascending: false });
+  const el = document.getElementById('extra-keys-list');
+  if (error || !data || !data.length) { el.innerHTML = '<p style="color:var(--text2);font-size:.875rem">No additional API keys.</p>'; return; }
+  el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Publishable Key</th><th>Created</th><th>Last Used</th><th></th></tr></thead><tbody>
+    ${data.map(k => `<tr>
+      <td>${esc(k.name)}</td>
+      <td><span class="key-value" style="font-family:monospace;font-size:.8rem">${esc(k.publishable_key)}</span></td>
+      <td>${new Date(k.created_at).toLocaleDateString()}</td>
+      <td>${k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteApiKey('${k.id}')">Revoke</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function showAddKeyModal() {
+  if (!currentAppId) { showToast('Select an app first', 'error'); return; }
+  document.getElementById('add-key-modal').classList.add('open');
+}
+
+async function addApiKey() {
+  const name = document.getElementById('new-key-name').value.trim();
+  if (!name) { showToast('Key name required', 'error'); return; }
+  const { error } = await supabase.from('api_keys').insert({ app_id: currentAppId, name, key_hash: crypto.randomUUID() });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  document.getElementById('add-key-modal').classList.remove('open');
+  document.getElementById('new-key-name').value = '';
+  showToast('API key created', 'success');
+  await loadKeys();
+}
+
+async function deleteApiKey(id) {
+  if (!confirm('Revoke this API key?')) return;
+  const { error } = await supabase.from('api_keys').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Key revoked', 'success');
+  await loadKeys();
+}
+
+// ── WEBHOOKS ───────────────────────────────────────────
+async function loadWebhooks() {
+  const noApp = document.getElementById('webhooks-no-app');
+  const content = document.getElementById('webhooks-content');
+  if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
+  noApp.style.display = 'none'; content.style.display = 'block';
+  const { data, error } = await supabase.from('webhooks').select('*').eq('app_id', currentAppId).order('created_at', { ascending: false });
+  const el = document.getElementById('webhooks-list');
+  if (error || !data || !data.length) { el.innerHTML = '<div class="empty-state" style="padding:40px"><div class="empty-state-icon">📡</div><h3>No webhooks</h3><p>Add a webhook to receive auth events.</p></div>'; return; }
+  el.innerHTML = data.map(w => `
+    <div class="webhook-row">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span class="webhook-url">${esc(w.url)}</span>
+          <span class="badge ${w.active ? 'badge-success' : 'badge-error'}">${w.active ? 'Active' : 'Inactive'}</span>
+        </div>
+        <div class="webhook-events">${(w.events || []).map(ev => `<span class="event-chip">${esc(ev)}</span>`).join('')}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="copyText('${esc(w.secret)}','Secret copied')">Copy Secret</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteWebhook('${w.id}')">Remove</button>
+    </div>
+  `).join('');
+}
+
+function toggleAddWebhook() {
+  const el = document.getElementById('add-webhook-form');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function addWebhook() {
+  const url = document.getElementById('new-webhook-url').value.trim();
+  if (!url) { showToast('URL is required', 'error'); return; }
+  const events = Array.from(document.querySelectorAll('.webhook-event-cb:checked')).map(cb => cb.value);
+  if (!events.length) { showToast('Select at least one event', 'error'); return; }
+  const { error } = await supabase.from('webhooks').insert({ app_id: currentAppId, url, events });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  document.getElementById('new-webhook-url').value = '';
+  toggleAddWebhook();
+  showToast('Webhook added', 'success');
+  await loadWebhooks();
+}
+
+async function deleteWebhook(id) {
+  if (!confirm('Remove this webhook?')) return;
+  const { error } = await supabase.from('webhooks').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Webhook removed', 'success');
+  await loadWebhooks();
+}
+
+// ── USERS ──────────────────────────────────────────────
+async function loadUsers() {
+  const noApp = document.getElementById('users-no-app');
+  const content = document.getElementById('users-content');
+  if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
+  noApp.style.display = 'none'; content.style.display = 'block';
+  const { data, error, count } = await supabase.from('app_users').select('*', { count: 'exact' }).eq('app_id', currentAppId).order('created_at', { ascending: false });
+  document.getElementById('users-count').textContent = `${count || 0} users`;
+  const el = document.getElementById('users-table-wrap');
+  if (error || !data || !data.length) { el.innerHTML = '<div class="empty-state" style="padding:40px"><div class="empty-state-icon">👤</div><h3>No users yet</h3><p>Users appear here after they sign up through your app.</p></div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Email</th><th>Name</th><th>Provider</th><th>Joined</th><th></th></tr></thead><tbody>
+    ${data.map(u => `<tr>
+      <td>${esc(u.email)}</td>
+      <td>${u.name ? esc(u.name) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td><span class="badge badge-purple">${esc(u.provider || 'email')}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString()}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">Delete</button></td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+async function deleteUser(id) {
+  if (!confirm('Delete this user? This cannot be undone.')) return;
+  const { error } = await supabase.from('app_users').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('User deleted', 'success');
+  await loadUsers();
+}
+
+// ── PROVIDERS ─────────────────────────────────────────
+const PROVIDERS = [
+  { id:'google', name:'Google', icon:'🔵', color:'#4285F4' },
+  { id:'github', name:'GitHub', icon:'⚫', color:'#333' },
+  { id:'microsoft', name:'Microsoft', icon:'🟦', color:'#00A4EF' },
+  { id:'x', name:'X / Twitter', icon:'🐦', color:'#1DA1F2' },
+  { id:'linkedin', name:'LinkedIn', icon:'🔷', color:'#0A66C2' },
+  { id:'patreon', name:'Patreon', icon:'🟠', color:'#FF424D' },
+  { id:'reddit', name:'Reddit', icon:'🔴', color:'#FF4500' },
+  { id:'discord', name:'Discord', icon:'🟣', color:'#5865F2' },
+];
+
+async function loadProviders() {
+  const noApp = document.getElementById('providers-no-app');
+  const content = document.getElementById('providers-content');
+  if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
+  noApp.style.display = 'none'; content.style.display = 'block';
+  document.getElementById('providers-error').style.display = 'none';
+
+  const { data: configs } = await supabase.from('provider_configs').select('*').eq('app_id', currentAppId);
+  providerState = {};
+  (configs || []).forEach(c => { providerState[c.provider] = c; });
+
+  const grid = document.getElementById('provider-grid');
+  grid.innerHTML = `
+    <div class="provider-card enabled">
+      <div class="provider-card-header">
+        <div class="provider-name"><div class="provider-icon" style="background:rgba(16,185,129,0.15)">📧</div> Email</div>
+        <label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label>
+      </div>
+      <p style="font-size:.8rem;color:var(--text2)">Email/password auth is always enabled and cannot be disabled.</p>
+    </div>
+    ${PROVIDERS.map(p => {
+      const cfg = providerState[p.id] || {};
+      const enabled = cfg.enabled || false;
+      return `
+        <div class="provider-card ${enabled ? 'enabled' : ''}" id="pc-${p.id}">
+          <div class="provider-card-header">
+            <div class="provider-name">
+              <div class="provider-icon" style="background:${p.color}22">${p.icon}</div>
+              ${p.name}
+            </div>
+            <label class="toggle">
+              <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleProvider('${p.id}', this.checked)" id="toggle-${p.id}">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="pc-fields-${p.id}" style="display:${enabled ? 'block' : 'none'}">
+            <div class="form-group" style="margin-bottom:8px">
+              <label>Client ID</label>
+              <input type="text" id="pc-cid-${p.id}" value="${esc(cfg.client_id || '')}" placeholder="Client ID" />
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Client Secret</label>
+              <input type="password" id="pc-sec-${p.id}" value="${esc(cfg.client_secret || '')}" placeholder="Client Secret" />
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  await loadRedirectUrls();
+}
+
+function toggleProvider(id, enabled) {
+  const card = document.getElementById('pc-' + id);
+  const fields = document.getElementById('pc-fields-' + id);
+  card.classList.toggle('enabled', enabled);
+  fields.style.display = enabled ? 'block' : 'none';
+
+  // Guard: can't disable all
+  const anyEnabled = PROVIDERS.some(p => {
+    if (p.id === id) return enabled;
+    const t = document.getElementById('toggle-' + p.id);
+    return t && t.checked;
+  });
+  document.getElementById('providers-error').style.display = 'none';
+}
+
+async function saveProviders() {
+  if (!currentAppId) return;
+  const upserts = PROVIDERS.map(p => {
+    const toggle = document.getElementById('toggle-' + p.id);
+    const enabled = toggle ? toggle.checked : false;
+    const client_id = document.getElementById('pc-cid-' + p.id)?.value || '';
+    const client_secret = document.getElementById('pc-sec-' + p.id)?.value || '';
+    return { app_id: currentAppId, provider: p.id, enabled, client_id: client_id || null, client_secret: client_secret || null };
+  });
+  const { error } = await supabase.from('provider_configs').upsert(upserts, { onConflict: 'app_id,provider' });
+  if (error) { showToast('Error saving: ' + error.message, 'error'); return; }
+  showToast('Provider settings saved', 'success');
+  await loadProviders();
+}
+
+async function loadRedirectUrls() {
+  const { data } = await supabase.from('redirect_urls').select('*').eq('app_id', currentAppId);
+  const el = document.getElementById('redirect-urls-list');
+  if (!data || !data.length) { el.innerHTML = '<p style="color:var(--text2);font-size:.875rem;margin-bottom:10px">No redirect URLs configured.</p>'; return; }
+  el.innerHTML = data.map(r => `
+    <div class="url-row">
+      <span class="url-text">${esc(r.url)}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteRedirectUrl('${r.id}')">Remove</button>
+    </div>
+  `).join('');
+}
+
+async function addRedirectUrl() {
+  const input = document.getElementById('new-redirect-url');
+  const url = input.value.trim();
+  if (!url) { showToast('Enter a URL', 'error'); return; }
+  if (!url.startsWith('http')) { showToast('URL must start with http:// or https://', 'error'); return; }
+  const { error } = await supabase.from('redirect_urls').insert({ app_id: currentAppId, url });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  input.value = '';
+  showToast('Redirect URL added', 'success');
+  await loadRedirectUrls();
+}
+
+async function deleteRedirectUrl(id) {
+  const { error } = await supabase.from('redirect_urls').delete().eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('URL removed', 'success');
+  await loadRedirectUrls();
+}
+
+// ── SETTINGS ───────────────────────────────────────────
+async function loadSettings() {
+  const noApp = document.getElementById('settings-no-app');
+  const content = document.getElementById('settings-content');
+  if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
+  noApp.style.display = 'none'; content.style.display = 'block';
+  const app = currentApps.find(a => a.id === currentAppId);
+  if (app) {
+    document.getElementById('settings-name').value = app.name;
+    document.getElementById('settings-desc').value = app.description || '';
+  }
+}
+
+async function saveSettings() {
+  const name = document.getElementById('settings-name').value.trim();
+  const description = document.getElementById('settings-desc').value.trim();
+  if (!name) { showToast('App name required', 'error'); return; }
+  const { error } = await supabase.from('apps').update({ name, description: description || null, updated_at: new Date().toISOString() }).eq('id', currentAppId);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Settings saved', 'success');
+  await loadApps();
+}
+
+async function confirmDeleteApp() {
+  const app = currentApps.find(a => a.id === currentAppId);
+  if (!app) return;
+  const confirmed = confirm(`Delete "${app.name}"? This will permanently delete all users, webhooks, and data for this app.`);
+  if (!confirmed) return;
+  const { error } = await supabase.from('apps').delete().eq('id', currentAppId);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  currentAppId = null;
+  showToast('App deleted', 'success');
+  showTab('apps');
+  await loadApps();
+}
+
+// ── UTILS ──────────────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function copyText(text, msg) {
+  navigator.clipboard.writeText(text).then(() => showToast(msg || 'Copied!', 'success'));
+}
+
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ'}</span><span>${esc(msg)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all .3s'; setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AuthFlow API Reference</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #22223a;
+    --border: #2a2a40;
+    --accent: #7c3aed;
+    --accent-light: #a78bfa;
+    --blue: #3b82f6;
+    --blue-light: #93c5fd;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #f1f0ff;
+    --text2: #a0a0c0;
+    --text3: #6060a0;
+    --radius: 8px;
+    --radius-lg: 14px;
+    --code-bg: #0d0d1a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; display: flex; min-height: 100vh; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:var(--surface); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* SIDEBAR */
+  .sidebar { width:260px; min-width:260px; background:var(--surface); border-right:1px solid var(--border); height:100vh; position:sticky; top:0; overflow-y:auto; display:flex; flex-direction:column; }
+  .sidebar-logo { padding:20px 20px 16px; border-bottom:1px solid var(--border); }
+  .sidebar-logo a { font-size:1.2rem; font-weight:800; background:linear-gradient(135deg,#a78bfa,#60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-decoration:none; }
+  .sidebar-logo p { font-size:.75rem; color:var(--text3); margin-top:4px; }
+  .sidebar-section { padding:16px 12px 8px; font-size:.7rem; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.1em; }
+  .sidebar-link { display:flex; align-items:center; gap:8px; padding:7px 14px; border-radius:6px; cursor:pointer; font-size:.875rem; color:var(--text2); text-decoration:none; transition:all .15s; margin:1px 6px; }
+  .sidebar-link:hover { background:var(--surface2); color:var(--text); }
+  .sidebar-link.active { background:rgba(124,58,237,0.15); color:var(--accent-light); font-weight:600; }
+  .method-badge { font-size:.65rem; font-weight:700; padding:2px 6px; border-radius:4px; min-width:38px; text-align:center; }
+  .get { background:rgba(16,185,129,0.15); color:var(--green); }
+  .post { background:rgba(59,130,246,0.15); color:var(--blue-light); }
+  .patch { background:rgba(245,158,11,0.15); color:var(--yellow); }
+  .delete { background:rgba(239,68,68,0.15); color:var(--red); }
+
+  /* MAIN */
+  .main { flex:1; overflow-y:auto; }
+  .topbar { padding:16px 36px; border-bottom:1px solid var(--border); background:rgba(10,10,15,0.8); backdrop-filter:blur(16px); position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:16px; }
+  .topbar h1 { font-size:1rem; font-weight:700; }
+  .topbar .badge { background:rgba(124,58,237,0.15); color:var(--accent-light); font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid rgba(124,58,237,0.3); }
+  .content { max-width:860px; margin:0 auto; padding:40px 36px 80px; }
+
+  /* SECTION */
+  .doc-section { margin-bottom:64px; animation:fadeIn .3s ease; }
+  .doc-section h2 { font-size:1.6rem; font-weight:800; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .doc-section h3 { font-size:1.15rem; font-weight:700; margin:28px 0 12px; }
+  .doc-section p { color:var(--text2); line-height:1.75; margin-bottom:12px; }
+  .doc-section ul { color:var(--text2); padding-left:20px; margin-bottom:12px; }
+  .doc-section ul li { line-height:1.75; margin-bottom:4px; }
+  .doc-section code { font-family:'JetBrains Mono','Fira Code',monospace; font-size:.82em; background:var(--surface2); padding:2px 6px; border-radius:4px; color:var(--accent-light); }
+
+  /* ENDPOINT CARD */
+  .endpoint { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:20px; }
+  .endpoint-header { display:flex; align-items:center; gap:12px; padding:16px 20px; cursor:pointer; transition:background .15s; }
+  .endpoint-header:hover { background:var(--surface2); }
+  .endpoint-path { font-family:'JetBrains Mono','Fira Code',monospace; font-size:.875rem; color:var(--text); font-weight:600; flex:1; }
+  .endpoint-summary { font-size:.8rem; color:var(--text2); }
+  .endpoint-body { border-top:1px solid var(--border); padding:20px; display:none; }
+  .endpoint-body.open { display:block; animation:fadeIn .2s ease; }
+
+  /* CODE BLOCK */
+  .code-tabs { display:flex; gap:2px; margin-bottom:0; background:var(--surface2); border-radius:8px 8px 0 0; padding:4px 4px 0; border:1px solid var(--border); border-bottom:none; }
+  .code-tab { padding:6px 14px; border-radius:6px 6px 0 0; cursor:pointer; font-size:.78rem; font-weight:600; color:var(--text3); transition:all .15s; }
+  .code-tab.active { background:var(--code-bg); color:var(--text); }
+  .code-block { background:var(--code-bg); border:1px solid var(--border); border-radius:0 0 8px 8px; overflow:hidden; }
+  .code-block pre { padding:20px; overflow-x:auto; font-family:'JetBrains Mono','Fira Code',monospace; font-size:.82rem; line-height:1.7; }
+  .code-block pre code { background:none; padding:0; color:var(--text); }
+  .standalone-code { background:var(--code-bg); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin:12px 0; }
+  .standalone-code pre { padding:16px 20px; overflow-x:auto; font-family:'JetBrains Mono','Fira Code',monospace; font-size:.82rem; line-height:1.7; }
+  .copy-code-btn { float:right; background:none; border:none; color:var(--text3); cursor:pointer; font-size:.75rem; padding:4px 8px; border-radius:4px; }
+  .copy-code-btn:hover { color:var(--text); background:var(--surface3); }
+
+  /* PARAMS TABLE */
+  .params-table { width:100%; border-collapse:collapse; margin:12px 0; }
+  .params-table th { text-align:left; padding:8px 12px; font-size:.75rem; color:var(--text3); font-weight:600; text-transform:uppercase; border-bottom:1px solid var(--border); }
+  .params-table td { padding:10px 12px; font-size:.85rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  .params-table tr:last-child td { border-bottom:none; }
+  .params-table td:first-child { font-family:monospace; color:var(--accent-light); white-space:nowrap; }
+  .params-table .type { color:var(--blue-light); font-size:.78rem; }
+  .params-table .required { color:var(--red); font-size:.72rem; font-weight:700; }
+  .params-table .optional { color:var(--text3); font-size:.72rem; }
+
+  /* TRY IT */
+  .try-it { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; margin-top:20px; }
+  .try-it h4 { font-size:.9rem; font-weight:700; margin-bottom:16px; color:var(--accent-light); }
+  .try-form { display:flex; flex-direction:column; gap:10px; }
+  .try-field { display:flex; flex-direction:column; gap:4px; }
+  .try-field label { font-size:.78rem; color:var(--text2); font-weight:600; }
+  .try-field input, .try-field textarea, .try-field select { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; color:var(--text); font-size:.85rem; outline:none; font-family:inherit; }
+  .try-field input:focus, .try-field textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(124,58,237,0.15); }
+  .try-field textarea { resize:vertical; min-height:80px; font-family:'JetBrains Mono',monospace; font-size:.82rem; }
+  .try-btn { background:linear-gradient(135deg,var(--accent),var(--blue)); color:#fff; border:none; padding:8px 20px; border-radius:var(--radius); font-weight:700; font-size:.875rem; cursor:pointer; align-self:flex-start; transition:all .2s; }
+  .try-btn:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(124,58,237,0.3); }
+  .try-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .try-response { margin-top:16px; }
+  .try-response-label { font-size:.75rem; color:var(--text3); font-weight:600; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .status-badge { font-size:.72rem; font-weight:700; padding:2px 8px; border-radius:4px; }
+  .status-2xx { background:rgba(16,185,129,.15); color:var(--green); }
+  .status-4xx { background:rgba(239,68,68,.15); color:var(--red); }
+  .try-response pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; font-family:'JetBrains Mono',monospace; font-size:.8rem; overflow-x:auto; max-height:300px; color:var(--text); line-height:1.6; }
+  .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; display:inline-block; }
+
+  /* SYNTAX HIGHLIGHT COLORS */
+  .kw { color:#c084fc; } /* keywords */
+  .st { color:#86efac; } /* strings */
+  .cm { color:#4a5568; font-style:italic; } /* comments */
+  .nm { color:#67e8f9; } /* numbers */
+  .fn { color:#93c5fd; } /* function names */
+  .kv { color:#fde68a; } /* keys */
+  .op { color:#f9a8d4; } /* operators */
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .content { padding:24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <a href="/">⚡ AuthFlow</a>
+    <p>API Reference v1</p>
+  </div>
+  <div class="sidebar-section">Getting Started</div>
+  <a class="sidebar-link active" href="#overview" onclick="scrollTo('overview')">Overview</a>
+  <a class="sidebar-link" href="#authentication" onclick="scrollTo('authentication')">Authentication</a>
+  <a class="sidebar-link" href="#errors" onclick="scrollTo('errors')">Error Handling</a>
+
+  <div class="sidebar-section">Auth Endpoints</div>
+  <a class="sidebar-link" href="#auth-config" onclick="scrollTo('auth-config')"><span class="method-badge get">GET</span> auth-config</a>
+  <a class="sidebar-link" href="#signup" onclick="scrollTo('signup')"><span class="method-badge post">POST</span> signup</a>
+  <a class="sidebar-link" href="#signin" onclick="scrollTo('signin')"><span class="method-badge post">POST</span> signin</a>
+  <a class="sidebar-link" href="#oauth-callback" onclick="scrollTo('oauth-callback')"><span class="method-badge post">POST</span> oauth-callback</a>
+  <a class="sidebar-link" href="#verify" onclick="scrollTo('verify')"><span class="method-badge get">GET</span> verify</a>
+
+  <div class="sidebar-section">User API</div>
+  <a class="sidebar-link" href="#me-get" onclick="scrollTo('me-get')"><span class="method-badge get">GET</span> /me</a>
+  <a class="sidebar-link" href="#me-patch" onclick="scrollTo('me-patch')"><span class="method-badge patch">PATCH</span> /me</a>
+  <a class="sidebar-link" href="#change-password" onclick="scrollTo('change-password')"><span class="method-badge post">POST</span> change-password</a>
+  <a class="sidebar-link" href="#me-delete" onclick="scrollTo('me-delete')"><span class="method-badge delete">DELETE</span> /me</a>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+  <div class="topbar">
+    <h1>API Reference</h1>
+    <span class="badge">v1.0</span>
+    <span style="margin-left:auto;font-size:.8rem;color:var(--text3)">Base URL: <code style="font-family:monospace;color:var(--accent-light)">https://lqkpxervwakucksrnoss.supabase.co/functions/v1</code></span>
+  </div>
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="doc-section" id="overview">
+      <h2>Overview</h2>
+      <p>AuthFlow provides drop-in authentication for multi-tenant applications. Each app you create gets isolated user pools, configurable OAuth providers, and JWT-based sessions.</p>
+      <p>All API endpoints are available at:</p>
+      <div class="standalone-code"><pre><code>https://lqkpxervwakucksrnoss.supabase.co/functions/v1/</code></pre></div>
+      <h3>How it works</h3>
+      <ul>
+        <li>Create an app in the <a href="/" style="color:var(--accent-light)">AuthFlow dashboard</a> and get a <strong>publishable key</strong></li>
+        <li>Embed the auth UI at <code>/v1/auth/?key=YOUR_KEY&amp;redirect_uri=YOUR_CALLBACK</code></li>
+        <li>After sign-in, users are redirected back with a <strong>JWT token</strong></li>
+        <li>Your app verifies the JWT and uses the User API on behalf of the user</li>
+      </ul>
+      <h3>Quick Start</h3>
+      <div class="code-tabs">
+        <div class="code-tab active" onclick="switchCodeTab(this,'qs')">JavaScript</div>
+        <div class="code-tab" onclick="switchCodeTab(this,'qs')">HTML</div>
+      </div>
+      <div class="code-block"><pre><code><span class="cm">// 1. Redirect to AuthFlow login page</span>
+<span class="kw">const</span> loginUrl = <span class="st">`https://lqkpxervwakucksrnoss.supabase.co/v1/auth/`</span>
+  + <span class="st">`?key=pk_YOUR_PUBLISHABLE_KEY`</span>
+  + <span class="st">`&amp;redirect_uri=${encodeURIComponent(window.location.origin + '/callback')}`</span>
+  + <span class="st">`&amp;state=random_csrf_token`</span>;
+
+window.location.href = loginUrl;
+
+<span class="cm">// 2. On your callback page, grab the token</span>
+<span class="kw">const</span> token = <span class="kw">new</span> <span class="fn">URLSearchParams</span>(window.location.search).<span class="fn">get</span>(<span class="st">'token'</span>);
+
+<span class="cm">// 3. Use the token to call the User API</span>
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="st">'https://lqkpxervwakucksrnoss.supabase.co/functions/v1/user-api/me'</span>, {
+  headers: { <span class="st">'Authorization'</span>: <span class="st">`Bearer ${token}`</span> }
+});
+<span class="kw">const</span> user = <span class="kw">await</span> res.<span class="fn">json</span>();
+</code></pre></div>
+    </div>
+
+    <!-- AUTHENTICATION -->
+    <div class="doc-section" id="authentication">
+      <h2>Authentication</h2>
+      <p>The User API uses <strong>Bearer token</strong> authentication. Include the JWT token issued by AuthFlow in the <code>Authorization</code> header:</p>
+      <div class="standalone-code"><pre><code>Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</code></pre></div>
+      <h3>JWT Payload</h3>
+      <p>AuthFlow JWTs contain the following claims:</p>
+      <table class="params-table">
+        <thead><tr><th>Claim</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>sub</td><td class="type">string</td><td>User ID (UUID)</td></tr>
+          <tr><td>email</td><td class="type">string</td><td>User email address</td></tr>
+          <tr><td>app_id</td><td class="type">string</td><td>App ID the user belongs to</td></tr>
+          <tr><td>iat</td><td class="type">number</td><td>Issued at (Unix timestamp)</td></tr>
+          <tr><td>exp</td><td class="type">number</td><td>Expiry (Unix timestamp, 7 days)</td></tr>
+        </tbody>
+      </table>
+      <h3>Verifying Tokens</h3>
+      <div class="code-tabs">
+        <div class="code-tab active" onclick="switchCodeTab(this,'verify-ex')">JavaScript</div>
+        <div class="code-tab" onclick="switchCodeTab(this,'verify-ex')">curl</div>
+      </div>
+      <div class="code-block"><pre><code><span class="cm">// Verify using the /verify endpoint</span>
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(
+  <span class="st">`https://lqkpxervwakucksrnoss.supabase.co/functions/v1/auth-handler/verify?token=${token}`</span>
+);
+<span class="kw">const</span> { valid, payload } = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (valid) {
+  console.<span class="fn">log</span>(<span class="st">'User ID:'</span>, payload.sub);
+  console.<span class="fn">log</span>(<span class="st">'Email:'</span>, payload.email);
+}
+</code></pre></div>
+    </div>
+
+    <!-- ERRORS -->
+    <div class="doc-section" id="errors">
+      <h2>Error Handling</h2>
+      <p>All errors return a JSON body with an <code>error</code> field and appropriate HTTP status codes.</p>
+      <div class="standalone-code"><pre><code>{
+  <span class="kv">"error"</span>: <span class="st">"Invalid credentials"</span>,
+  <span class="kv">"code"</span>: <span class="st">"AUTH_INVALID_CREDENTIALS"</span>
+}</code></pre></div>
+      <table class="params-table">
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>200</td><td>Success</td></tr>
+          <tr><td>400</td><td>Bad request – missing or invalid parameters</td></tr>
+          <tr><td>401</td><td>Unauthorized – missing or invalid JWT</td></tr>
+          <tr><td>403</td><td>Forbidden – insufficient permissions</td></tr>
+          <tr><td>404</td><td>Not found</td></tr>
+          <tr><td>409</td><td>Conflict – e.g. email already exists</td></tr>
+          <tr><td>500</td><td>Internal server error</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- AUTH-CONFIG -->
+    <div class="doc-section" id="auth-config">
+      <h2>GET /auth-config</h2>
+      <p>Returns the public configuration for an app given its publishable key. Used by the auth UI to determine which providers to show.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge get">GET</span>
+          <span class="endpoint-path">/auth-config?key={publishable_key}</span>
+          <span class="endpoint-summary">Get app configuration</span>
+        </div>
+        <div class="endpoint-body open">
+          <h4 style="margin-bottom:10px">Query Parameters</h4>
+          <table class="params-table">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>key</td><td class="type">string</td><td><span class="required">required</span></td><td>App publishable key (starts with <code>pk_</code>)</td></tr>
+            </tbody>
+          </table>
+          <h4 style="margin:16px 0 10px">Response</h4>
+          <div class="standalone-code"><pre><code>{
+  <span class="kv">"id"</span>: <span class="st">"uuid"</span>,
+  <span class="kv">"name"</span>: <span class="st">"My App"</span>,
+  <span class="kv">"providers"</span>: [<span class="st">"email"</span>, <span class="st">"google"</span>, <span class="st">"github"</span>],
+  <span class="kv">"provider_configs"</span>: [
+    { <span class="kv">"provider"</span>: <span class="st">"google"</span>, <span class="kv">"client_id"</span>: <span class="st">"..."</span> }
+  ],
+  <span class="kv">"redirect_urls"</span>: [<span class="st">"https://myapp.com/callback"</span>]
+}</code></pre></div>
+          <div class="try-it">
+            <h4>🧪 Try it out</h4>
+            <div class="try-form">
+              <div class="try-field"><label>Publishable Key</label><input type="text" id="try-config-key" placeholder="pk_..." /></div>
+              <button class="try-btn" onclick="tryAuthConfig()">Send Request</button>
+              <div class="try-response" id="try-config-response" style="display:none">
+                <div class="try-response-label">Response <span id="try-config-status" class="status-badge"></span></div>
+                <pre id="try-config-pre"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div class="doc-section" id="signup">
+      <h2>POST /auth-handler/signup</h2>
+      <p>Create a new end-user account in an app. The password is bcrypt-hashed before storage.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge post">POST</span>
+          <span class="endpoint-path">/auth-handler/signup</span>
+          <span class="endpoint-summary">Create user account</span>
+        </div>
+        <div class="endpoint-body open">
+          <h4 style="margin-bottom:10px">Request Body</h4>
+          <table class="params-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>email</td><td class="type">string</td><td><span class="required">required</span></td><td>User email address</td></tr>
+              <tr><td>password</td><td class="type">string</td><td><span class="required">required</span></td><td>Password (min 8 chars)</td></tr>
+              <tr><td>app_key</td><td class="type">string</td><td><span class="required">required</span></td><td>App publishable key</td></tr>
+              <tr><td>name</td><td class="type">string</td><td><span class="optional">optional</span></td><td>Display name</td></tr>
+            </tbody>
+          </table>
+          <h4 style="margin:16px 0 10px">Response</h4>
+          <div class="standalone-code"><pre><code>{
+  <span class="kv">"token"</span>: <span class="st">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="kv">"user"</span>: {
+    <span class="kv">"id"</span>: <span class="st">"uuid"</span>,
+    <span class="kv">"email"</span>: <span class="st">"user@example.com"</span>,
+    <span class="kv">"name"</span>: <span class="kw">null</span>,
+    <span class="kv">"provider"</span>: <span class="st">"email"</span>,
+    <span class="kv">"created_at"</span>: <span class="st">"2024-01-01T00:00:00Z"</span>
+  }
+}</code></pre></div>
+          <div class="code-tabs">
+            <div class="code-tab active" onclick="switchCodeTab(this,'signup-ex')">JavaScript</div>
+            <div class="code-tab" onclick="switchCodeTab(this,'signup-ex')">curl</div>
+          </div>
+          <div class="code-block" id="signup-ex-0"><pre><code><span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="st">'https://lqkpxervwakucksrnoss.supabase.co/functions/v1/auth-handler/signup'</span>, {
+  method: <span class="st">'POST'</span>,
+  headers: { <span class="st">'Content-Type'</span>: <span class="st">'application/json'</span> },
+  body: <span class="fn">JSON.stringify</span>({
+    email: <span class="st">'user@example.com'</span>,
+    password: <span class="st">'securepassword'</span>,
+    app_key: <span class="st">'pk_your_publishable_key'</span>
+  })
+});
+<span class="kw">const</span> { token, user } = <span class="kw">await</span> res.<span class="fn">json</span>();
+</code></pre></div>
+          <div class="code-block" id="signup-ex-1" style="display:none"><pre><code>curl -X POST https://lqkpxervwakucksrnoss.supabase.co/functions/v1/auth-handler/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword",
+    "app_key": "pk_your_publishable_key"
+  }'
+</code></pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNIN -->
+    <div class="doc-section" id="signin">
+      <h2>POST /auth-handler/signin</h2>
+      <p>Authenticate a user with email and password. Verifies the bcrypt hash and returns a JWT.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge post">POST</span>
+          <span class="endpoint-path">/auth-handler/signin</span>
+          <span class="endpoint-summary">Sign in with email &amp; password</span>
+        </div>
+        <div class="endpoint-body open">
+          <h4 style="margin-bottom:10px">Request Body</h4>
+          <table class="params-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>email</td><td class="type">string</td><td><span class="required">required</span></td><td>User email</td></tr>
+              <tr><td>password</td><td class="type">string</td><td><span class="required">required</span></td><td>User password</td></tr>
+              <tr><td>app_key</td><td class="type">string</td><td><span class="required">required</span></td><td>App publishable key</td></tr>
+            </tbody>
+          </table>
+          <div class="code-tabs">
+            <div class="code-tab active" onclick="switchCodeTab(this,'signin-ex')">JavaScript</div>
+            <div class="code-tab" onclick="switchCodeTab(this,'signin-ex')">curl</div>
+          </div>
+          <div class="code-block" id="signin-ex-0"><pre><code><span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="st">'https://lqkpxervwakucksrnoss.supabase.co/functions/v1/auth-handler/signin'</span>, {
+  method: <span class="st">'POST'</span>,
+  headers: { <span class="st">'Content-Type'</span>: <span class="st">'application/json'</span> },
+  body: <span class="fn">JSON.stringify</span>({
+    email: <span class="st">'user@example.com'</span>,
+    password: <span class="st">'securepassword'</span>,
+    app_key: <span class="st">'pk_your_publishable_key'</span>
+  })
+});
+<span class="kw">const</span> { token } = <span class="kw">await</span> res.<span class="fn">json</span>();
+</code></pre></div>
+          <div class="code-block" id="signin-ex-1" style="display:none"><pre><code>curl -X POST https://lqkpxervwakucksrnoss.supabase.co/functions/v1/auth-handler/signin \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"securepassword","app_key":"pk_..."}'
+</code></pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OAUTH CALLBACK -->
+    <div class="doc-section" id="oauth-callback">
+      <h2>POST /auth-handler/oauth-callback</h2>
+      <p>Exchange an OAuth authorization code for a user JWT. Called automatically by the auth UI after OAuth redirect.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge post">POST</span>
+          <span class="endpoint-path">/auth-handler/oauth-callback</span>
+          <span class="endpoint-summary">Exchange OAuth code for JWT</span>
+        </div>
+        <div class="endpoint-body open">
+          <table class="params-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>provider</td><td class="type">string</td><td><span class="required">required</span></td><td>Provider name (google, github, etc.)</td></tr>
+              <tr><td>code</td><td class="type">string</td><td><span class="required">required</span></td><td>OAuth authorization code</td></tr>
+              <tr><td>redirect_uri</td><td class="type">string</td><td><span class="required">required</span></td><td>OAuth redirect URI (must match)</td></tr>
+              <tr><td>app_key</td><td class="type">string</td><td><span class="required">required</span></td><td>App publishable key</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VERIFY -->
+    <div class="doc-section" id="verify">
+      <h2>GET /auth-handler/verify</h2>
+      <p>Verify a JWT token and return its payload.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge get">GET</span>
+          <span class="endpoint-path">/auth-handler/verify?token={jwt}</span>
+          <span class="endpoint-summary">Verify JWT token</span>
+        </div>
+        <div class="endpoint-body open">
+          <table class="params-table">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>token</td><td class="type">string</td><td>JWT to verify</td></tr>
+            </tbody>
+          </table>
+          <h4 style="margin:16px 0 10px">Response</h4>
+          <div class="standalone-code"><pre><code>{
+  <span class="kv">"valid"</span>: <span class="kw">true</span>,
+  <span class="kv">"payload"</span>: {
+    <span class="kv">"sub"</span>: <span class="st">"user-uuid"</span>,
+    <span class="kv">"email"</span>: <span class="st">"user@example.com"</span>,
+    <span class="kv">"app_id"</span>: <span class="st">"app-uuid"</span>,
+    <span class="kv">"iat"</span>: <span class="nm">1700000000</span>,
+    <span class="kv">"exp"</span>: <span class="nm">1700604800</span>
+  }
+}</code></pre></div>
+          <div class="try-it">
+            <h4>🧪 Try it out</h4>
+            <div class="try-form">
+              <div class="try-field"><label>JWT Token</label><input type="text" id="try-verify-token" placeholder="eyJhbGci..." /></div>
+              <button class="try-btn" onclick="tryVerify()">Send Request</button>
+              <div class="try-response" id="try-verify-response" style="display:none">
+                <div class="try-response-label">Response <span id="try-verify-status" class="status-badge"></span></div>
+                <pre id="try-verify-pre"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GET /me -->
+    <div class="doc-section" id="me-get">
+      <h2>GET /user-api/me</h2>
+      <p>Returns the authenticated user's profile.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge get">GET</span>
+          <span class="endpoint-path">/user-api/me</span>
+          <span class="endpoint-summary">Get current user</span>
+        </div>
+        <div class="endpoint-body open">
+          <p style="font-size:.85rem;color:var(--text2);margin-bottom:12px">Requires <code>Authorization: Bearer {token}</code></p>
+          <div class="standalone-code"><pre><code>{
+  <span class="kv">"id"</span>: <span class="st">"uuid"</span>,
+  <span class="kv">"email"</span>: <span class="st">"user@example.com"</span>,
+  <span class="kv">"name"</span>: <span class="st">"Jane Doe"</span>,
+  <span class="kv">"avatar_url"</span>: <span class="st">"https://..."</span>,
+  <span class="kv">"provider"</span>: <span class="st">"google"</span>,
+  <span class="kv">"metadata"</span>: {},
+  <span class="kv">"created_at"</span>: <span class="st">"2024-01-01T00:00:00Z"</span>,
+  <span class="kv">"updated_at"</span>: <span class="st">"2024-01-15T12:00:00Z"</span>
+}</code></pre></div>
+          <div class="try-it">
+            <h4>🧪 Try it out</h4>
+            <div class="try-form">
+              <div class="try-field"><label>Bearer Token</label><input type="text" id="try-me-token" placeholder="eyJhbGci..." /></div>
+              <button class="try-btn" onclick="tryGetMe()">Send Request</button>
+              <div class="try-response" id="try-me-response" style="display:none">
+                <div class="try-response-label">Response <span id="try-me-status" class="status-badge"></span></div>
+                <pre id="try-me-pre"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PATCH /me -->
+    <div class="doc-section" id="me-patch">
+      <h2>PATCH /user-api/me</h2>
+      <p>Update the authenticated user's profile.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge patch">PATCH</span>
+          <span class="endpoint-path">/user-api/me</span>
+          <span class="endpoint-summary">Update user profile</span>
+        </div>
+        <div class="endpoint-body open">
+          <table class="params-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>name</td><td class="type">string</td><td><span class="optional">optional</span></td><td>Display name</td></tr>
+              <tr><td>avatar_url</td><td class="type">string</td><td><span class="optional">optional</span></td><td>Avatar URL</td></tr>
+              <tr><td>metadata</td><td class="type">object</td><td><span class="optional">optional</span></td><td>Custom metadata (merged)</td></tr>
+            </tbody>
+          </table>
+          <div class="try-it">
+            <h4>🧪 Try it out</h4>
+            <div class="try-form">
+              <div class="try-field"><label>Bearer Token</label><input type="text" id="try-patch-token" placeholder="eyJhbGci..." /></div>
+              <div class="try-field"><label>Request Body (JSON)</label><textarea id="try-patch-body">{"name": "Jane Doe", "avatar_url": "https://example.com/avatar.png"}</textarea></div>
+              <button class="try-btn" onclick="tryPatchMe()">Send Request</button>
+              <div class="try-response" id="try-patch-response" style="display:none">
+                <div class="try-response-label">Response <span id="try-patch-status" class="status-badge"></span></div>
+                <pre id="try-patch-pre"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANGE PASSWORD -->
+    <div class="doc-section" id="change-password">
+      <h2>POST /user-api/change-password</h2>
+      <p>Change the authenticated user's password. The old password is verified before updating.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge post">POST</span>
+          <span class="endpoint-path">/user-api/change-password</span>
+          <span class="endpoint-summary">Change user password</span>
+        </div>
+        <div class="endpoint-body open">
+          <table class="params-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>old_password</td><td class="type">string</td><td><span class="required">required</span></td><td>Current password</td></tr>
+              <tr><td>new_password</td><td class="type">string</td><td><span class="required">required</span></td><td>New password (min 8 chars)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DELETE /me -->
+    <div class="doc-section" id="me-delete">
+      <h2>DELETE /user-api/me</h2>
+      <p>Permanently delete the authenticated user's account and all associated data.</p>
+      <div class="endpoint">
+        <div class="endpoint-header" onclick="toggleEndpoint(this)">
+          <span class="method-badge delete">DELETE</span>
+          <span class="endpoint-path">/user-api/me</span>
+          <span class="endpoint-summary">Delete user account</span>
+        </div>
+        <div class="endpoint-body open">
+          <p style="font-size:.85rem;color:var(--text2)">No request body required. Returns <code>204 No Content</code> on success. This action is irreversible.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const FN_BASE = 'https://lqkpxervwakucksrnoss.supabase.co/functions/v1';
+
+function toggleEndpoint(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function switchCodeTab(tab, groupId) {
+  const tabs = tab.parentElement.querySelectorAll('.code-tab');
+  tabs.forEach((t, i) => {
+    t.classList.toggle('active', t === tab);
+    const block = document.getElementById(groupId + '-' + i);
+    if (block) block.style.display = t === tab ? '' : 'none';
+  });
+}
+
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  const active = document.querySelector(`.sidebar-link[href="#${id}"]`);
+  if (active) active.classList.add('active');
+  return false;
+}
+
+async function tryRequest(url, options, statusId, preId, responseId) {
+  document.getElementById(responseId).style.display = 'block';
+  document.getElementById(statusId).textContent = '...';
+  document.getElementById(preId).textContent = 'Loading...';
+  try {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let formatted;
+    try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch { formatted = text; }
+    const statusEl = document.getElementById(statusId);
+    statusEl.textContent = res.status;
+    statusEl.className = 'status-badge ' + (res.ok ? 'status-2xx' : 'status-4xx');
+    document.getElementById(preId).textContent = formatted;
+  } catch (e) {
+    document.getElementById(statusId).textContent = 'Error';
+    document.getElementById(preId).textContent = e.message;
+  }
+}
+
+function tryAuthConfig() {
+  const key = document.getElementById('try-config-key').value.trim();
+  if (!key) { alert('Enter a publishable key'); return; }
+  tryRequest(`${FN_BASE}/auth-config?key=${encodeURIComponent(key)}`, {}, 'try-config-status', 'try-config-pre', 'try-config-response');
+}
+function tryVerify() {
+  const token = document.getElementById('try-verify-token').value.trim();
+  if (!token) { alert('Enter a token'); return; }
+  tryRequest(`${FN_BASE}/auth-handler/verify?token=${encodeURIComponent(token)}`, {}, 'try-verify-status', 'try-verify-pre', 'try-verify-response');
+}
+function tryGetMe() {
+  const token = document.getElementById('try-me-token').value.trim();
+  if (!token) { alert('Enter a Bearer token'); return; }
+  tryRequest(`${FN_BASE}/user-api/me`, { headers: { Authorization: `Bearer ${token}` } }, 'try-me-status', 'try-me-pre', 'try-me-response');
+}
+function tryPatchMe() {
+  const token = document.getElementById('try-patch-token').value.trim();
+  const body = document.getElementById('try-patch-body').value.trim();
+  if (!token) { alert('Enter a Bearer token'); return; }
+  tryRequest(`${FN_BASE}/user-api/me`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body }, 'try-patch-status', 'try-patch-pre', 'try-patch-response');
+}
+</script>
+</body>
+</html>
