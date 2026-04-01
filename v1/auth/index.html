@@ -147,7 +147,7 @@
             </div>
             <div class="form-group">
               <label>Password</label>
-              <input type="password" id="password-input" placeholder="••••••••" required minlength="8" autocomplete="current-password" id="password-input" />
+              <input type="password" id="password-input" placeholder="••••••••" required minlength="8" autocomplete="current-password" />
             </div>
             <div class="form-group" id="confirm-pw-group" style="display:none">
               <label>Confirm Password</label>
@@ -354,7 +354,7 @@ function startOAuth(provider) {
   if (!cfg || !cfg.client_id) { showError(`${p.name} is not fully configured.`); return; }
 
   const callbackUrl = `${window.location.origin}${window.location.pathname}?key=${encodeURIComponent(publishableKey)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state || '')}&provider=${provider}`;
-  const oauthState = btoa(JSON.stringify({ redirectUri, state, publishableKey, provider }));
+  const oauthState = btoa(encodeURIComponent(JSON.stringify({ redirectUri, state, publishableKey, provider })));
 
   const qp = new URLSearchParams({
     client_id: cfg.client_id,
@@ -368,6 +368,9 @@ function startOAuth(provider) {
 
 async function handleOAuthCallback(provider, code) {
   const storedState = params.get('state');
+  function parseState(s) {
+    try { return JSON.parse(decodeURIComponent(atob(s))); } catch { return {}; }
+  }
   try {
     const res = await fetch(`${FN_BASE}/auth-handler/oauth-callback`, {
       method: 'POST',
@@ -376,13 +379,13 @@ async function handleOAuthCallback(provider, code) {
         provider,
         code,
         redirect_uri: window.location.href.split('?')[0] + window.location.search.replace(/&?code=[^&]*/g,'').replace(/&?provider=[^&]*/g,''),
-        app_key: publishableKey || (storedState ? JSON.parse(atob(storedState)).publishableKey : null),
+        app_key: publishableKey || (storedState ? parseState(storedState).publishableKey : null),
         state: storedState
       })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'OAuth failed');
-    const parsed = storedState ? JSON.parse(atob(storedState)) : {};
+    const parsed = storedState ? parseState(storedState) : {};
     finishAuth(data.token, parsed.redirectUri || redirectUri);
   } catch (err) {
     showScreen('auth');

@@ -90,7 +90,7 @@ async function dispatchWebhook(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-AuthFlow-Signature": signature,
+            "X-AuthFlow-Signature": `sha256=${signature}`,
             "X-AuthFlow-Event": event,
           },
           body,
