@@ -603,10 +603,10 @@ let currentTab = 'apps';
 let providerState = {};
 let currentAuthTab = 'signin';
 
-let supabase = null;
+let supabaseClient = null;
 try {
   if (window.supabase) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 } catch (e) {
   console.error('Failed to initialize Supabase:', e);
@@ -614,15 +614,15 @@ try {
 
 // ── INIT ──────────────────────────────────────────────
 async function init() {
-  if (!supabase) {
+  if (!supabaseClient) {
     console.warn('Supabase is unavailable — authentication features are disabled.');
     return;
   }
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     await onLogin(session.user);
   }
-  supabase.auth.onAuthStateChange(async (_event, session) => {
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     if (session) { await onLogin(session.user); }
     else { onLogout(); }
   });
@@ -693,11 +693,11 @@ async function handleAuth(e) {
 
   let error;
   try {
-    if (!supabase) throw new Error(MSG_SERVICE_UNAVAILABLE);
+    if (!supabaseClient) throw new Error(MSG_SERVICE_UNAVAILABLE);
     if (currentAuthTab === 'signin') {
-      ({ error } = await supabase.auth.signInWithPassword({ email, password }));
+      ({ error } = await supabaseClient.auth.signInWithPassword({ email, password }));
     } else {
-      ({ error } = await supabase.auth.signUp({ email, password }));
+      ({ error } = await supabaseClient.auth.signUp({ email, password }));
       if (!error) { showToast('Check your email to confirm your account!', 'info'); }
     }
   } catch (err) {
@@ -714,14 +714,14 @@ async function handleAuth(e) {
 }
 
 async function signOut() {
-  if (!supabase) { onLogout(); return; }
-  await supabase.auth.signOut();
+  if (!supabaseClient) { onLogout(); return; }
+  await supabaseClient.auth.signOut();
   showToast('Signed out', 'info');
 }
 
 // ── APPS ──────────────────────────────────────────────
 async function loadApps() {
-  const { data, error } = await supabase.from('apps').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabaseClient.from('apps').select('*').order('created_at', { ascending: false });
   if (error) { showToast('Failed to load apps: ' + error.message, 'error'); return; }
   currentApps = data || [];
   renderAppSelector();
@@ -784,7 +784,7 @@ async function createApp() {
   const name = document.getElementById('new-app-name').value.trim();
   const description = document.getElementById('new-app-desc').value.trim();
   if (!name) { showToast('App name is required', 'error'); return; }
-  const { error } = await supabase.from('apps').insert({ name, description: description || null, owner_id: currentUser.id });
+  const { error } = await supabaseClient.from('apps').insert({ name, description: description || null, owner_id: currentUser.id });
   if (error) { showToast('Failed to create app: ' + error.message, 'error'); return; }
   document.getElementById('new-app-name').value = '';
   document.getElementById('new-app-desc').value = '';
@@ -836,7 +836,7 @@ async function loadKeys() {
       <div class="key-row"><span class="key-label">Secret Key</span><span class="key-value" style="filter:blur(4px)" onmouseover="this.style.filter='none'" onmouseout="this.style.filter='blur(4px)'">${esc(app.secret_key)}</span><button class="copy-btn" onclick="copyText('${esc(app.secret_key)}','Copied')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
     `;
   }
-  const { data, error } = await supabase.from('api_keys').select('*').eq('app_id', currentAppId).order('created_at', { ascending: false });
+  const { data, error } = await supabaseClient.from('api_keys').select('*').eq('app_id', currentAppId).order('created_at', { ascending: false });
   const el = document.getElementById('extra-keys-list');
   if (error || !data || !data.length) { el.innerHTML = '<p style="color:var(--text2);font-size:.875rem">No additional API keys.</p>'; return; }
   el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Publishable Key</th><th>Created</th><th>Last Used</th><th></th></tr></thead><tbody>
@@ -858,7 +858,7 @@ function showAddKeyModal() {
 async function addApiKey() {
   const name = document.getElementById('new-key-name').value.trim();
   if (!name) { showToast('Key name required', 'error'); return; }
-  const { error } = await supabase.from('api_keys').insert({ app_id: currentAppId, name, key_hash: crypto.randomUUID() });
+  const { error } = await supabaseClient.from('api_keys').insert({ app_id: currentAppId, name, key_hash: crypto.randomUUID() });
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   document.getElementById('add-key-modal').classList.remove('open');
   document.getElementById('new-key-name').value = '';
@@ -868,7 +868,7 @@ async function addApiKey() {
 
 async function deleteApiKey(id) {
   if (!confirm('Revoke this API key?')) return;
-  const { error } = await supabase.from('api_keys').delete().eq('id', id);
+  const { error } = await supabaseClient.from('api_keys').delete().eq('id', id);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Key revoked', 'success');
   await loadKeys();
@@ -880,7 +880,7 @@ async function loadWebhooks() {
   const content = document.getElementById('webhooks-content');
   if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
   noApp.style.display = 'none'; content.style.display = 'block';
-  const { data, error } = await supabase.from('webhooks').select('*').eq('app_id', currentAppId).order('created_at', { ascending: false });
+  const { data, error } = await supabaseClient.from('webhooks').select('*').eq('app_id', currentAppId).order('created_at', { ascending: false });
   const el = document.getElementById('webhooks-list');
   if (error || !data || !data.length) { el.innerHTML = '<div class="empty-state" style="padding:40px"><div class="empty-state-icon">📡</div><h3>No webhooks</h3><p>Add a webhook to receive auth events.</p></div>'; return; }
   el.innerHTML = data.map(w => `
@@ -908,7 +908,7 @@ async function addWebhook() {
   if (!url) { showToast('URL is required', 'error'); return; }
   const events = Array.from(document.querySelectorAll('.webhook-event-cb:checked')).map(cb => cb.value);
   if (!events.length) { showToast('Select at least one event', 'error'); return; }
-  const { error } = await supabase.from('webhooks').insert({ app_id: currentAppId, url, events });
+  const { error } = await supabaseClient.from('webhooks').insert({ app_id: currentAppId, url, events });
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   document.getElementById('new-webhook-url').value = '';
   toggleAddWebhook();
@@ -918,7 +918,7 @@ async function addWebhook() {
 
 async function deleteWebhook(id) {
   if (!confirm('Remove this webhook?')) return;
-  const { error } = await supabase.from('webhooks').delete().eq('id', id);
+  const { error } = await supabaseClient.from('webhooks').delete().eq('id', id);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Webhook removed', 'success');
   await loadWebhooks();
@@ -930,7 +930,7 @@ async function loadUsers() {
   const content = document.getElementById('users-content');
   if (!currentAppId) { noApp.style.display = 'block'; content.style.display = 'none'; return; }
   noApp.style.display = 'none'; content.style.display = 'block';
-  const { data, error, count } = await supabase.from('app_users').select('*', { count: 'exact' }).eq('app_id', currentAppId).order('created_at', { ascending: false });
+  const { data, error, count } = await supabaseClient.from('app_users').select('*', { count: 'exact' }).eq('app_id', currentAppId).order('created_at', { ascending: false });
   document.getElementById('users-count').textContent = `${count || 0} users`;
   const el = document.getElementById('users-table-wrap');
   if (error || !data || !data.length) { el.innerHTML = '<div class="empty-state" style="padding:40px"><div class="empty-state-icon">👤</div><h3>No users yet</h3><p>Users appear here after they sign up through your app.</p></div>'; return; }
@@ -947,7 +947,7 @@ async function loadUsers() {
 
 async function deleteUser(id) {
   if (!confirm('Delete this user? This cannot be undone.')) return;
-  const { error } = await supabase.from('app_users').delete().eq('id', id);
+  const { error } = await supabaseClient.from('app_users').delete().eq('id', id);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('User deleted', 'success');
   await loadUsers();
@@ -972,7 +972,7 @@ async function loadProviders() {
   noApp.style.display = 'none'; content.style.display = 'block';
   document.getElementById('providers-error').style.display = 'none';
 
-  const { data: configs } = await supabase.from('provider_configs').select('*').eq('app_id', currentAppId);
+  const { data: configs } = await supabaseClient.from('provider_configs').select('*').eq('app_id', currentAppId);
   providerState = {};
   (configs || []).forEach(c => { providerState[c.provider] = c; });
 
@@ -1042,14 +1042,14 @@ async function saveProviders() {
     const client_secret = document.getElementById('pc-sec-' + p.id)?.value || '';
     return { app_id: currentAppId, provider: p.id, enabled, client_id: client_id || null, client_secret: client_secret || null };
   });
-  const { error } = await supabase.from('provider_configs').upsert(upserts, { onConflict: 'app_id,provider' });
+  const { error } = await supabaseClient.from('provider_configs').upsert(upserts, { onConflict: 'app_id,provider' });
   if (error) { showToast('Error saving: ' + error.message, 'error'); return; }
   showToast('Provider settings saved', 'success');
   await loadProviders();
 }
 
 async function loadRedirectUrls() {
-  const { data } = await supabase.from('redirect_urls').select('*').eq('app_id', currentAppId);
+  const { data } = await supabaseClient.from('redirect_urls').select('*').eq('app_id', currentAppId);
   const el = document.getElementById('redirect-urls-list');
   if (!data || !data.length) { el.innerHTML = '<p style="color:var(--text2);font-size:.875rem;margin-bottom:10px">No redirect URLs configured.</p>'; return; }
   el.innerHTML = data.map(r => `
@@ -1065,7 +1065,7 @@ async function addRedirectUrl() {
   const url = input.value.trim();
   if (!url) { showToast('Enter a URL', 'error'); return; }
   if (!url.startsWith('http')) { showToast('URL must start with http:// or https://', 'error'); return; }
-  const { error } = await supabase.from('redirect_urls').insert({ app_id: currentAppId, url });
+  const { error } = await supabaseClient.from('redirect_urls').insert({ app_id: currentAppId, url });
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   input.value = '';
   showToast('Redirect URL added', 'success');
@@ -1073,7 +1073,7 @@ async function addRedirectUrl() {
 }
 
 async function deleteRedirectUrl(id) {
-  const { error } = await supabase.from('redirect_urls').delete().eq('id', id);
+  const { error } = await supabaseClient.from('redirect_urls').delete().eq('id', id);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('URL removed', 'success');
   await loadRedirectUrls();
@@ -1096,7 +1096,7 @@ async function saveSettings() {
   const name = document.getElementById('settings-name').value.trim();
   const description = document.getElementById('settings-desc').value.trim();
   if (!name) { showToast('App name required', 'error'); return; }
-  const { error } = await supabase.from('apps').update({ name, description: description || null, updated_at: new Date().toISOString() }).eq('id', currentAppId);
+  const { error } = await supabaseClient.from('apps').update({ name, description: description || null, updated_at: new Date().toISOString() }).eq('id', currentAppId);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Settings saved', 'success');
   await loadApps();
@@ -1107,7 +1107,7 @@ async function confirmDeleteApp() {
   if (!app) return;
   const confirmed = confirm(`Delete "${app.name}"? This will permanently delete all users, webhooks, and data for this app.`);
   if (!confirmed) return;
-  const { error } = await supabase.from('apps').delete().eq('id', currentAppId);
+  const { error } = await supabaseClient.from('apps').delete().eq('id', currentAppId);
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
   currentAppId = null;
   showToast('App deleted', 'success');
